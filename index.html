@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Studio CLI</title>
+    <meta name="theme-color" content="#ffffff" />
+    <meta name="application-name" content="Studio CLI" />
+    <meta name="apple-mobile-web-app-title" content="Studio CLI" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="icon" type="image/png" sizes="64x64" href="/favicon-64.png" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <script>
+      (function () {
+        try {
+          if (localStorage.getItem('studio_splash') === 'off' || sessionStorage.getItem('studio_cli_splash_seen')) return;
+          var d = document.documentElement;
+          d.setAttribute('data-intro', '');
+          setTimeout(function () { d.removeAttribute('data-intro'); }, 9000);
+        } catch (e) {}
+      })();
+    </script>
+    <style>html[data-intro] body::after { content: ''; position: fixed; inset: 0; background: #FDFBF7; z-index: 2147482000; }</style>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;450;500;600;650&family=JetBrains+Mono:wght@400;500;600;800&display=swap" />
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

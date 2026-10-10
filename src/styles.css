@@ -1,0 +1,369 @@
+@import 'tailwindcss';
+
+/* Cantivia design language: matte white field, #1d1d1f ink, Apple greys, one
+   disciplined violet, liquid-glass surfaces over a slow violet ink layer. */
+@theme inline {
+  --font-sans: 'Inter', ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  --color-ink: var(--ink);
+  --color-muted: var(--muted);
+  --color-faint: var(--faint);
+  --color-line: var(--line);
+  --color-fill: var(--fill);
+  --color-canvas: var(--canvas);
+  --color-violet: var(--accent);
+  --color-violet-deep: var(--accent-hover);
+  --color-success: var(--success);
+  --color-warn: var(--warn);
+  --color-danger: var(--danger);
+}
+
+:root {
+  --canvas: #ffffff;
+  --ink: #1d1d1f;
+  --muted: #636366;
+  --faint: #8e8e93;
+  --line: #e5e5ea;
+  --line-strong: #d2d2d7;
+  --fill: #f2f2f5;
+  --accent: #6d28d9;
+  --accent-hover: #5b21b6;
+  --accent-glow: rgba(109, 40, 217, 0.14);
+  --success: #1f8a4c;
+  --warn: #c27400;
+  --danger: #ff3b30;
+  --ease: cubic-bezier(0.22, 1, 0.36, 1);
+  color-scheme: light;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+  background: var(--canvas);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  overflow: hidden;
+}
+
+::selection {
+  background: rgba(109, 40, 217, 0.14);
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(0, 0, 0, 0.14) transparent;
+}
+
+button {
+  cursor: pointer;
+}
+
+button:focus-visible,
+a:focus-visible {
+  outline: 2px solid rgba(109, 40, 217, 0.45);
+  outline-offset: 2px;
+}
+
+/* ── Ink ambience ─────────────────────────────────────────────────────────── */
+.ink-field {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+.ink-blob {
+  position: absolute;
+  filter: blur(70px);
+  opacity: 0.55;
+  animation:
+    ink-morph 26s ease-in-out infinite,
+    ink-drift 38s ease-in-out infinite alternate;
+}
+@keyframes ink-morph {
+  0%,
+  100% {
+    border-radius: 42% 58% 63% 37% / 47% 42% 58% 53%;
+  }
+  33% {
+    border-radius: 63% 37% 41% 59% / 58% 63% 37% 42%;
+  }
+  66% {
+    border-radius: 38% 62% 56% 44% / 39% 51% 49% 61%;
+  }
+}
+@keyframes ink-drift {
+  from {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  to {
+    transform: translate3d(40px, -30px, 0) scale(1.08);
+  }
+}
+
+/* ── Liquid glass ─────────────────────────────────────────────────────────── */
+.liquid-glass {
+  position: relative;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.84), rgba(255, 255, 255, 0.66));
+  backdrop-filter: blur(14px) saturate(140%);
+  -webkit-backdrop-filter: blur(14px) saturate(140%);
+  border: 1px solid rgba(255, 255, 255, 0.7);
+  box-shadow:
+    0 8px 30px -12px rgba(17, 12, 46, 0.14),
+    inset 0 1px 0 rgba(255, 255, 255, 0.85);
+}
+.liquid-glass::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.6), transparent 16px);
+}
+
+.surface {
+  background: #fff;
+  border: 1px solid var(--line);
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.04),
+    0 12px 32px -18px rgba(17, 12, 46, 0.18);
+}
+
+.hairline {
+  border-color: var(--line);
+}
+
+/* ── Panes ────────────────────────────────────────────────────────────────── */
+.pane {
+  --acc: #8b5cf6;
+  position: relative;
+  border-radius: 18px;
+  overflow: hidden;
+  transition:
+    box-shadow 0.45s var(--ease),
+    border-color 0.45s var(--ease);
+}
+/* A hairline of the pane colour along the top edge: the colour code. */
+.pane::before {
+  content: '';
+  position: absolute;
+  left: 18px;
+  right: 18px;
+  top: 0;
+  height: 2px;
+  border-radius: 0 0 2px 2px;
+  background: var(--acc);
+  opacity: 0.55;
+  z-index: 1;
+  transition: opacity 0.45s var(--ease), left 0.45s var(--ease), right 0.45s var(--ease);
+}
+.pane.focused::before {
+  opacity: 1;
+  left: 0;
+  right: 0;
+}
+.pane.paper {
+  background: #fbf9f4;
+  border: 1px solid rgba(29, 29, 31, 0.07);
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.03),
+    0 16px 36px -26px rgba(17, 12, 46, 0.28);
+}
+.pane.ink {
+  background: #0e0e10;
+  border: 1px solid #1f1f24;
+  box-shadow: 0 18px 40px -24px rgba(17, 12, 46, 0.55);
+}
+.pane.focused {
+  border-color: var(--acc-line);
+  box-shadow:
+    0 0 0 3px var(--acc-faint),
+    0 20px 44px -26px var(--acc-shadow);
+}
+/* Notification ring: cmux's blue ring, in the pane's own colour. */
+.pane.attention {
+  border-color: var(--acc) !important;
+  box-shadow:
+    0 0 0 3px var(--acc-soft),
+    0 0 38px -4px var(--acc-shadow);
+  animation: ring-breathe 2.4s var(--ease) infinite;
+}
+@keyframes ring-breathe {
+  50% {
+    box-shadow:
+      0 0 0 6px var(--acc-faint),
+      0 0 50px -2px var(--acc-shadow);
+  }
+}
+
+.term-host {
+  position: absolute;
+  inset: 4px 6px 8px 16px;
+}
+.term-host .xterm,
+.term-host .xterm-viewport,
+.term-host .xterm-screen {
+  height: 100%;
+}
+.term-host .xterm-viewport {
+  background: transparent !important;
+}
+.term-host .xterm-viewport::-webkit-scrollbar {
+  width: 8px;
+}
+.term-host .xterm-viewport::-webkit-scrollbar-thumb {
+  background: var(--acc-soft);
+  border-radius: 8px;
+}
+
+.divider {
+  position: relative;
+  flex: 0 0 10px;
+  z-index: 2;
+}
+.divider::after {
+  content: '';
+  position: absolute;
+  border-radius: 4px;
+  background: transparent;
+  transition: background 0.3s var(--ease);
+}
+.divider.row {
+  cursor: col-resize;
+}
+.divider.row::after {
+  top: 30%;
+  bottom: 30%;
+  left: 4px;
+  width: 2px;
+}
+.divider.col {
+  cursor: row-resize;
+}
+.divider.col::after {
+  left: 30%;
+  right: 30%;
+  top: 4px;
+  height: 2px;
+}
+.divider:hover::after,
+.divider.dragging::after {
+  background: rgba(109, 40, 217, 0.55);
+}
+
+/* ── Status dots ──────────────────────────────────────────────────────────── */
+.dot-busy {
+  background: var(--accent);
+  box-shadow: 0 0 0 0 rgba(109, 40, 217, 0.5);
+  animation: pulse 1.6s var(--ease) infinite;
+}
+@keyframes pulse {
+  70% {
+    box-shadow: 0 0 0 6px rgba(109, 40, 217, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(109, 40, 217, 0);
+  }
+}
+
+.shimmer-text {
+  background: linear-gradient(90deg, var(--muted) 0%, var(--accent) 45%, var(--muted) 90%);
+  background-size: 200% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: shimmer 2.2s linear infinite;
+}
+@keyframes shimmer {
+  to {
+    background-position: -200% 0;
+  }
+}
+
+kbd {
+  font-family: var(--font-sans);
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--muted);
+  background: var(--fill);
+  border: 1px solid var(--line);
+  border-bottom-width: 2px;
+  border-radius: 6px;
+  padding: 0 5px;
+  min-width: 18px;
+  display: inline-flex;
+  justify-content: center;
+}
+
+.link-underline {
+  position: relative;
+}
+.link-underline::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 100%;
+  bottom: -2px;
+  height: 1px;
+  background: var(--accent);
+  transition: right 0.4s var(--ease);
+}
+.link-underline:hover::after {
+  right: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ink-blob,
+  .pane.attention,
+  .dot-busy,
+  .shimmer-text {
+    animation: none;
+  }
+}
+
+.input {
+  width: 100%;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  background: #fff;
+  padding: 8px 12px;
+  font-size: 13px;
+  color: var(--ink);
+  outline: none;
+  transition: border-color 0.3s var(--ease);
+}
+.input:focus {
+  border-color: rgba(109, 40, 217, 0.5);
+}
+
+/* ── Installed app: window controls overlay ─────────────────────────────────
+   As a Chrome app the title bar is ours. These regions drag the window, and
+   the env() insets keep content clear of the traffic lights. In a normal tab
+   the env() values fall back to 0, so nothing moves. */
+.drag {
+  app-region: drag;
+  -webkit-app-region: drag;
+}
+.drag button,
+.drag a,
+.drag input,
+.drag [role='button'] {
+  app-region: no-drag;
+  -webkit-app-region: no-drag;
+}
+.titlebar-pad-top {
+  padding-top: calc(env(titlebar-area-height, 0px) + 1.25rem);
+}
+.titlebar-pad-left {
+  padding-left: env(titlebar-area-x, 0px);
+}
+
+.rail {
+  transition:
+    width 0.45s var(--ease),
+    opacity 0.35s var(--ease),
+    margin 0.45s var(--ease);
+}

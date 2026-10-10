@@ -1,0 +1,84 @@
+# AGENTS.md
+
+Guide for coding agents working in this repo. Read it before changing anything.
+
+## What this is
+
+**Studio CLI** is a local, browser-based workspace for running many terminals and Claude Code sessions. It takes the ideas of [cmux](https://github.com/manaflow-ai/cmux) and uses Cantivia's visual language (matte white, Inter, one violet accent, liquid glass). It runs on localhost and installs as a Chrome app (PWA). There is no cloud part.
+
+Three top-level views (the tab bar in `src/components/TopNav.tsx`):
+
+- **Workspaces.** A workspace is a folder plus its panes (terminal, Claude, browser), auto-tiled into a grid. Each workspace has a colour that runs through the sidebar dot, pane border and glow, cursor, and shell prompt. Clicking a Claude pane opens the **Claude panel** (workflows, live activity, skills, history).
+- **Agent View.** One pixel office per workspace plus "Everyone". Every open terminal is a character. Built on the vendored Pixel Agents UI.
+- **Sessions.** Every past Claude Code conversation from `~/.claude/projects`, resumable.
+
+## Run it
+
+```bash
+npm install          # postinstall chmods node-pty's spawn-helper (see Gotchas)
+npm run dev          # API + terminals on 127.0.0.1:4600, UI (Vite) on 127.0.0.1:4610
+npm run build && npm start   # single non-reloading server on :4600 serving dist/
+npx tsc --noEmit     # typecheck (src + server). There is no lint or unit-test suite yet
+npm run build:office # rebuild the Agent View bundle into public/office (only after editing vendor/)
+```
+
+The user opens http://127.0.0.1:4610, usually as the installed Chrome app. Both servers bind to 127.0.0.1 only.
+
+## Layout
+
+```
+server/                  Node (tsx), Express + ws + node-pty
+  index.ts               HTTP API, WebSocket routes, 2s poller (cwd, ports, git, PR, Claude status, office states)
+  terminals.ts           pty lifecycle, scrollback replay, OSC/BEL parser → notifications
+  shell.ts               zsh integration written to ~/.studio-cli/zsh (ZDOTDIR): prompt, OSC 7 cwd, long-command notifications, Claude theme
+  claude.ts              reads ~/.claude: live sessions/<pid>.json, transcripts (activity), session list, skills/commands
+  meta.ts                ps / lsof / git / gh helpers
+  offices.ts             Agent View backend: speaks the Pixel Agents webview protocol over /ws/office
+  store.ts               workflows (~/.studio-cli/workflows.json), cmux.json project commands, dir listing
+src/                     React 19 + Vite + Tailwind v4 (CSS-first, tokens in src/styles.css) + framer-motion + zustand
+  lib/store.ts           UI state (persisted to localStorage key "cmux-studio"; the old name is kept on purpose)
+  lib/terms.ts           xterm registry living outside React; themes; WebSocket per terminal
+  lib/layout.ts          split-tree helpers and gridLayout()
+  lib/runs.ts            multi-step workflow runner (auto-advances when Claude goes busy → idle)
+  lib/colors.ts          the 10-colour palette (ui + glow tones) and nextHue()
+  components/            Sidebar, TopNav, WorkspaceView, TerminalView, BrowserView, ClaudePanel, PixelOffice (Agent View), Sessions, intro/
+vendor/pixel-agents/     MIT-licensed Pixel Agents webview + core, with a Studio transport (see below)
+public/office/           built Agent View bundle (committed so a fresh clone runs without building vendor/)
+public/                  PWA manifest, service worker, icons, offline page
+bin/studio               tiny CLI: studio notify | send | ls
+```
+
+## How the main pieces work
+
+- **Terminals.** `POST /api/terminals` spawns a login zsh through node-pty (commands run as `zsh -l -i -c "<cmd>; exec zsh -l"`). The browser attaches over `/ws/term/:id`. Frames starting with `\x00` are JSON control messages (resize). The server keeps 512 KB of scrollback for replay after a reload.
+- **xterm instances persist outside React** (`lib/terms.ts`). A pane borrows a terminal's DOM node while mounted, so switching tabs never tears down or replays a terminal. Panes respawn their pty when the server no longer knows it (close code 4404 → `gone`).
+- **Claude status** comes from Claude Code's own `~/.claude/sessions/<pid>.json` (`status: busy | idle`), matched to a pane through the pty's process tree. Activity comes from the transcript at `~/.claude/projects/<cwd with non-alnum → "-">/<sessionId>.jsonl`.
+- **Done signals.** busy → idle raises a notification whose body is Claude's last reply. The zsh integration emits OSC 777 for commands that ran ≥ 10s (`STUDIO_NOTIFY_AFTER`). A finished turn or command shows a ring, a "✓ Done" chip, the sidebar status, and a check on the office character.
+- **Workflows** are prompt lists sent to the focused Claude via `/api/terminals/:id/send` (bracketed paste for multi-line). `lib/runs.ts` sends the next step after Claude has been busy and returns idle.
+- **Agent View.** `vendor/pixel-agents/webview-ui` is upstream's office UI with three patches: art always loads in-browser (`main.tsx`, `App.tsx`, `browserMock.ts`), and `src/transport/index.ts` connects to Studio's `/ws/office?office=<workspaceId|all>`, buffering server messages until the sprites are loaded. The client tells the server which terminals belong to which workspace via `PUT /api/offices`. `server/offices.ts` turns terminal state into `agentCreated / agentToolStart / agentStatus` messages and tints each office's lounge floor with the workspace colour. Clicking a character sends `focusAgent`, which Studio turns into a jump to that terminal.
+- **Browser panes** are iframes. `GET /api/frame-check` reads X-Frame-Options and CSP frame-ancestors first. Sites that forbid embedding (Google, GitHub) get an "Open in side window" card instead of Chrome's error page.
+- **Opening animation** (`components/intro/`) is copied from cantivia/studio's splash with "cli" added. Stroke data comes from that repo's `ink-gen/gen.py` (Hershey fonts).
+
+## Gotchas (each one has bitten this project)
+
+- **node-pty `posix_spawnp failed`**: npm's install-script allowlist can skip node-pty's postinstall, leaving `prebuilds/darwin-*/spawn-helper` non-executable. The `postinstall` script chmods it. Keep it.
+- **Studio launched from inside Claude Code** inherits `CLAUDECODE` / `CLAUDE_CODE_*` vars, which make every Claude in a pane a "child session" with no transcript and no sessions file, so status tracking goes blind. `terminals.ts` strips them. Don't remove that filter.
+- **CSS `visibility`**: a child with `visibility: visible` shows through a `visibility: hidden` parent. Hidden views must hide their children too (`visible && …`), or they bleed into other views.
+- **`backdrop-filter`** (`.liquid-glass`) makes the element the containing block for `position: fixed` children. Modals inside glass panels must be portalled to `document.body`.
+- **Don't animate sidebars or rails with AnimatePresence width mount/unmount.** It got stuck a few pixels wide. Use always-mounted elements with CSS width transitions (`.rail`).
+- **zustand v5 selectors** that build new arrays or objects cause infinite render loops. Use `useShallow` or return primitives.
+- **Claude Code's theme**: on paper (light) terminals Studio runs Claude with `--settings '{"theme":"light"}'` through a zsh function, and `terms.ts` strips the light theme's grey user-message background. The user's global `~/.claude/settings.json` is never touched.
+- **Resume only saved conversations.** A Claude session that never got a message has no transcript, and `--resume` fails. The server checks `transcriptExists()` before swapping in `--resume`.
+- **Editing `server/` in dev restarts the server and kills every terminal**, including the user's real work. Claude panes respawn on the same conversation, but shells lose their state. Batch server edits, and say so when you restart.
+- **Keyboard shortcuts in a browser.** ⌘T, ⌘W and ⌘N belong to Chrome. Studio uses ⌥⌘T (new terminal), ⌥⌘N (new workspace), ⌘D / ⌘⇧D (split), ⌘⏎ (zoom), ⌘K (palette), ⌘⇧U (latest unread), ⌃1–9 (switch workspace). Shortcuts are registered in the capture phase so they beat the focused xterm.
+
+## Conventions
+
+- Design tokens live in `src/styles.css` (no Tailwind config). Colours: ink `#1d1d1f`, muted `#636366`, accent violet `#6d28d9`, paper terminal `#fbf9f4`, brand beige `#F5F1E8`. Motion easing is `cubic-bezier(0.22, 1, 0.36, 1)`.
+- Workspace, workflow and office colours always come from `lib/colors.ts` (`ui` for chrome on white, `glow` for prompts, cursors and anything on dark).
+- Match the surrounding code: short comments that explain why, no comment banners on trivial code, no new dependencies without a reason.
+- Runtime data lives in `~/.studio-cli/` (workflows, office layouts, zsh integration). Never write into `~/.claude/` except through Claude Code itself.
+
+## Verifying UI changes
+
+There's no test suite. Verify in a real browser with Playwright: Chromium and WebKit are in `~/Library/Caches/ms-playwright`, and the library is importable from another local project's `node_modules`. Typical loop: typecheck, drive the flow, screenshot, look at the screenshot. To skip the intro, set `sessionStorage['studio_cli_splash_seen'] = '1'` in an init script. Clean up only the terminals your test created. The user's own terminals run on the same server.

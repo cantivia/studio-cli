@@ -1,0 +1,23 @@
+{
+  "name": "pixel-agents-vendored",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "react": "^19.2.5",
+    "react-dom": "^19.2.5"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.2.2",
+    "@types/node": "26.x",
+    "@types/pngjs": "^6.0.5",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^6.0.1",
+    "globals": "^17.8.0",
+    "pngjs": "^7.0.0",
+    "tailwindcss": "^4.2.2",
+    "tsx": "^4.19.3",
+    "typescript": "~5.9.3",
+    "vite": "^8.0.8"
+  }
+}
