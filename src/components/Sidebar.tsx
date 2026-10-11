@@ -201,7 +201,7 @@ function WorkspaceItem({ ws, index, active, ...dnd }: { ws: Workspace; index: nu
             {info.unread}
           </span>
         )}
-        <span className="hidden items-center group-hover:flex">
+        <span className="hidden items-center group-hover:flex [@media(hover:none)]:flex">
           <button
             onClick={(e) => {
               e.stopPropagation();

@@ -18,6 +18,7 @@ import { InkField } from './components/InkField';
 import { useWorkflowAutoAdvance } from './lib/runs';
 import { StudioIntro } from './components/intro/StudioIntro';
 import { useIsPhone } from './lib/device';
+import { onRemoteWorkspaces, syncWorkspaces } from './lib/sync';
 
 function useEventStream() {
   const setServer = useStore((s) => s.setServer);
@@ -28,9 +29,11 @@ function useEventStream() {
     const open = () => {
       const proto = location.protocol === 'https:' ? 'wss' : 'ws';
       ws = new WebSocket(`${proto}://${location.host}/ws/events`);
+      ws.onopen = () => void syncWorkspaces();
       ws.onmessage = (ev) => {
         const msg = JSON.parse(ev.data);
         if (msg.type === 'focus') return jumpToTerminal(msg.termId);
+        if (msg.type === 'workspaces') return onRemoteWorkspaces(msg);
         if (msg.type !== 'state') return;
         const notifications: Notification[] = msg.notifications;
         if (seen.current) {
@@ -41,7 +44,7 @@ function useEventStream() {
         setServer({ ready: true, home: msg.home, terminals: msg.terminals, meta: msg.meta, notifications });
       };
       ws.onclose = () => {
-        setServer({ ready: false });
+        setServer({ ready: false, synced: false });
         retry = setTimeout(open, 1200);
       };
     };

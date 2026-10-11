@@ -27,7 +27,8 @@ type Props = {
 };
 
 export function TerminalView({ pane, focused, visible, onFocus, actions, headerExtra, bare, accent = hue('violet') }: Props) {
-  const ready = useStore((s) => s.ready);
+  // Wait for the shared workspace list too, so a device with a stale copy doesn't start terminals for closed panes.
+  const ready = useStore((s) => s.ready && s.synced);
   const alive = useStore((s) => !!pane.termId && s.terminals.some((t) => t.id === pane.termId));
   const meta = useStore((s) => (pane.termId ? s.meta[pane.termId] : undefined));
   const title = useStore((s) => s.terminals.find((t) => t.id === pane.termId)?.title);
@@ -59,7 +60,16 @@ export function TerminalView({ pane, focused, visible, onFocus, actions, headerE
     // Keep the original command; the server swaps in --resume when the conversation exists.
     const command = pane.command?.startsWith('claude --resume') && resume ? 'claude' : pane.command;
     api
-      .post<{ id: string }>('/api/terminals', { cwd: meta?.cwd || pane.cwd, command, resume, accent: accent.glow, theme: ink ? 'dark' : 'light', ...estimateSize(ref.current) })
+      .post<{ id: string }>('/api/terminals', {
+        // paneId: if another device is starting this same pane right now, the server hands back that terminal.
+        paneId: pane.id,
+        cwd: meta?.cwd || pane.cwd,
+        command,
+        resume,
+        accent: accent.glow,
+        theme: ink ? 'dark' : 'light',
+        ...estimateSize(ref.current),
+      })
       .then((t) => updatePane(pane.id, (p) => ({ ...p, termId: t.id })))
       .catch((e) => setError(String(e.message || e)))
       .finally(() => creating.delete(pane.id));

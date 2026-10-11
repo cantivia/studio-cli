@@ -9,7 +9,7 @@ import { WebSocketServer, type WebSocket } from 'ws';
 import { TerminalManager, type TermNotification } from './terminals.ts';
 import { descendants, gitInfo, listeningPorts, prInfo, processCwd, processTree, type GitInfo, type PrInfo } from './meta.ts';
 import { listSessions, listSlashCommands, readActivity, readClaudeProcs, transcriptExists, transcriptPath, type ClaudeProc } from './claude.ts';
-import { customCommands, listDirs, loadWorkflows, saveWorkflows } from './store.ts';
+import { customCommands, listDirs, loadWorkflows, loadWorkspaces, saveWorkflows, saveWorkspaces } from './store.ts';
 import { installShellIntegration } from './shell.ts';
 import { offices, toolStatus, type AgentState } from './offices.ts';
 import { checkAccess, isAllowedOrigin, remoteConfig } from './access.ts';
@@ -22,6 +22,7 @@ const BASE_URL = `http://${HOST}:${PORT}`;
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
 const terms = new TerminalManager(BASE_URL);
+const paneTerms = new Map<string, string>(); // pane id → terminal id
 
 type Notification = TermNotification & { id: string; at: number; read: boolean };
 let notifications: Notification[] = [];
@@ -187,13 +188,18 @@ offices.onFocus = (termId) => {
 app.post(
   '/api/terminals',
   wrap(async (req, res) => {
-    const { cwd, cols, rows, accent, resume, theme } = req.body || {};
+    const { cwd, cols, rows, accent, resume, theme, paneId } = req.body || {};
     let { command } = req.body || {};
+    // Every device shows the same panes: if two start one at once, both get the same terminal.
+    const existing = paneId && terms.list().find((t) => t.id === paneTerms.get(paneId) && !t.exited);
+    if (existing) return res.json(existing);
     if (cwd && !fs.existsSync(cwd)) return res.status(400).json({ error: `No such directory: ${cwd}` });
     // Respawning a Claude pane: resume its conversation only if one was actually saved.
     if (resume && typeof command === 'string' && command.startsWith('claude') && (await transcriptExists(resume)))
       command = `claude --resume ${resume}`;
-    res.json(terms.create({ cwd, command, cols, rows, accent, theme }));
+    const term = terms.create({ cwd, command, cols, rows, accent, theme });
+    if (paneId) paneTerms.set(paneId, term.id);
+    res.json(term);
   }),
 );
 app.delete('/api/terminals/:id', (req, res) => res.json({ ok: terms.kill(req.params.id) }));
@@ -267,6 +273,22 @@ app.get(
     }
   }),
 );
+
+// Workspaces are shared by the Mac, iPad and phone so you can switch devices and carry on.
+const shared = await loadWorkspaces();
+app.get('/api/workspaces', (_req, res) => res.json(shared));
+app.put('/api/workspaces', (req, res) => {
+  const { workspaces, from } = req.body || {};
+  if (!Array.isArray(workspaces)) return res.status(400).json({ error: 'expected a workspaces array' });
+  const ids = new Set(workspaces.map((w: { id: string }) => w.id));
+  const closed = (shared.workspaces || []).map((w) => (w as { id: string }).id).filter((id) => !ids.has(id));
+  shared.deleted = [...new Set([...shared.deleted, ...closed])].filter((id) => !ids.has(id)).slice(-500);
+  shared.workspaces = workspaces;
+  saveWorkspaces(shared);
+  const msg = JSON.stringify({ type: 'workspaces', workspaces, from });
+  for (const ws of eventClients) if (ws.readyState === 1) ws.send(msg);
+  res.json({ ok: true });
+});
 
 app.get('/api/workflows', wrap(async (_req, res) => res.json(await loadWorkflows())));
 app.put(

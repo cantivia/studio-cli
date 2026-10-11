@@ -7,6 +7,8 @@ import { findPane, gridLayout, mapPane, panes, removePane, setRatio, splitPane, 
 
 type ServerState = {
   ready: boolean;
+  /** This device has merged its workspaces with the shared list; terminals wait for it. */
+  synced: boolean;
   home: string;
   terminals: TermInfo[];
   meta: Record<string, TermMeta>;
@@ -74,6 +76,7 @@ export const useStore = create<Store>()(
   persist(
     (set, get) => ({
       ready: false,
+      synced: false,
       home: '',
       terminals: [],
       meta: {},

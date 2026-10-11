@@ -84,6 +84,13 @@ async function writeJson(file: string, value: unknown) {
 export const loadWorkflows = () => readJson<Workflow[]>('workflows.json', DEFAULT_WORKFLOWS);
 export const saveWorkflows = (w: Workflow[]) => writeJson('workflows.json', w);
 
+/** Workspaces shared by every device, plus ids closed on one device so another can't bring them back. */
+export type SharedWorkspaces = { workspaces: unknown[] | null; deleted: string[] };
+export const loadWorkspaces = () => readJson<SharedWorkspaces>('workspaces.json', { workspaces: null, deleted: [] });
+let saving = Promise.resolve();
+// Writes are queued so two quick saves can't interleave and corrupt the file.
+export const saveWorkspaces = (w: SharedWorkspaces) => (saving = saving.then(() => writeJson('workspaces.json', w)).catch(() => {}));
+
 /** cmux-compatible project commands: ./cmux.json → { commands: [{ name, command }] } */
 export async function customCommands(cwd: string): Promise<{ name: string; command: string; description?: string }[]> {
   for (const f of ['cmux.json', '.cmux.json']) {
