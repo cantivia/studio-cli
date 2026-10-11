@@ -276,6 +276,12 @@ app.get(
 
 // Workspaces are shared by the Mac, iPad and phone so you can switch devices and carry on.
 const shared = await loadWorkspaces();
+// Terminals outlive this process, so relearn which pane owns which terminal from the saved layout.
+const rememberPanes = (node: any) => {
+  if (node?.type === 'pane') node.pane?.termId && paneTerms.set(node.pane.id, node.pane.termId);
+  else if (node?.type === 'split') rememberPanes(node.a), rememberPanes(node.b);
+};
+for (const w of shared.workspaces || []) rememberPanes((w as { root?: unknown }).root);
 app.get('/api/workspaces', (_req, res) => res.json(shared));
 app.put('/api/workspaces', (req, res) => {
   const { workspaces, from } = req.body || {};
@@ -284,6 +290,7 @@ app.put('/api/workspaces', (req, res) => {
   const closed = (shared.workspaces || []).map((w) => (w as { id: string }).id).filter((id) => !ids.has(id));
   shared.deleted = [...new Set([...shared.deleted, ...closed])].filter((id) => !ids.has(id)).slice(-500);
   shared.workspaces = workspaces;
+  for (const w of workspaces) rememberPanes(w.root);
   saveWorkspaces(shared);
   const msg = JSON.stringify({ type: 'workspaces', workspaces, from });
   for (const ws of eventClients) if (ws.readyState === 1) ws.send(msg);
