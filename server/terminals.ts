@@ -169,13 +169,25 @@ export class TerminalManager extends EventEmitter {
     }
     term.clients.add(ws);
     if (term.buffer) ws.send(term.buffer);
+    // Ends the replay and tells this viewer the pty's size (another device may have set it).
+    ws.send('\x00' + JSON.stringify({ t: 'size', cols: term.proc.cols, rows: term.proc.rows }));
     ws.on('message', (raw) => {
       const msg = raw.toString();
       if (msg.startsWith('\x00')) {
         // Control frame: \x00{"t":"resize","cols":..,"rows":..}
         try {
           const ctl = JSON.parse(msg.slice(1));
-          if (ctl.t === 'resize' && ctl.cols > 0 && ctl.rows > 0) term.proc.resize(ctl.cols, ctl.rows);
+          if (ctl.t === 'resize' && ctl.cols > 0 && ctl.rows > 0) {
+            if (ctl.redraw) {
+              // Replayed output of a full-screen app (Claude) usually starts mid-frame, and a resize to the
+              // same size doesn't make it repaint. Nudge the height so it redraws everything.
+              term.proc.resize(ctl.cols, Math.max(2, ctl.rows - 1));
+              setTimeout(() => !term.exited && term.proc.resize(ctl.cols, ctl.rows), 50);
+            } else term.proc.resize(ctl.cols, ctl.rows);
+            // Every viewer learns the new size, so another device can take it back when it's used.
+            const size = '\x00' + JSON.stringify({ t: 'size', cols: ctl.cols, rows: ctl.rows });
+            for (const c of term.clients) if (c.readyState === 1) c.send(size);
+          }
         } catch {}
         return;
       }

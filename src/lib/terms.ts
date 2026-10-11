@@ -23,6 +23,13 @@ type Entry = {
   disposed: boolean;
   accent: string;
   ink: boolean;
+  /** The pty's current size as the server last reported it (another device may have set it). */
+  ptySize: { cols: number; rows: number } | null;
+  connectedBefore: boolean;
+  /** Waiting for the scrollback replay that follows each (re)connect. */
+  awaitingReplay: boolean;
+  /** A full-screen app (Claude) was replayed mid-frame: ask it to repaint once this device is in view. */
+  needsRedraw: boolean;
 };
 
 const registry = new Map<string, Entry>();
@@ -108,12 +115,29 @@ function connect(termId: string, e: Entry) {
   const proto = location.protocol === 'https:' ? 'wss' : 'ws';
   const ws = new WebSocket(`${proto}://${location.host}/ws/term/${termId}`);
   e.ws = ws;
+  ws.onopen = () => {
+    // Reconnecting: the server replays recent output, so start clean instead of drawing it over the old screen.
+    if (e.connectedBefore) e.term.reset();
+    e.connectedBefore = true;
+    e.awaitingReplay = true;
+    // The server ends its replay with a size frame; older servers don't, so don't wait forever.
+    setTimeout(() => afterReplay(e), 1500);
+  };
   ws.onmessage = (ev) => {
     const data = typeof ev.data === 'string' ? ev.data : '';
+    if (data.startsWith('\x00{')) {
+      try {
+        const msg = JSON.parse(data.slice(1));
+        if (msg.t === 'size') {
+          e.ptySize = { cols: msg.cols, rows: msg.rows };
+          afterReplay(e);
+        }
+      } catch {}
+      return;
+    }
     // Paper terminals: Claude's light theme puts your messages in a grey box; swap it for a faint wash of the workspace colour.
     e.term.write(e.ink ? data : data.replaceAll(CLAUDE_LIGHT_MSG_BG, msgTint(e.accent)));
   };
-  ws.onopen = () => sendSize(e);
   ws.onclose = (ev) => {
     if (e.disposed) return;
     if (ev.reason === 'exited') {
@@ -128,7 +152,34 @@ function connect(termId: string, e: Entry) {
 }
 
 function sendSize(e: Entry) {
-  if (e.ws?.readyState === WebSocket.OPEN) e.ws.send('\x00' + JSON.stringify({ t: 'resize', cols: e.term.cols, rows: e.term.rows }));
+  if (e.ws?.readyState !== WebSocket.OPEN) return;
+  e.ws.send('\x00' + JSON.stringify({ t: 'resize', cols: e.term.cols, rows: e.term.rows, redraw: e.needsRedraw || undefined }));
+  e.ptySize = { cols: e.term.cols, rows: e.term.rows };
+  e.needsRedraw = false;
+}
+
+/**
+ * Every device shares one pty, sized for whichever device set it last. The device you're using
+ * (typing, clicking, pointing, coming back to the tab) takes the size back, so Claude's prompt box
+ * isn't drawn below the bottom of your screen.
+ */
+function claimSize(e: Entry, force = false) {
+  if (!e.opened || !e.el.isConnected || !e.el.clientWidth || document.hidden) return;
+  const s = e.ptySize;
+  if (force || e.needsRedraw || !s || s.cols !== e.term.cols || s.rows !== e.term.rows) sendSize(e);
+}
+
+const claimAll = () => registry.forEach((e) => claimSize(e));
+document.addEventListener('visibilitychange', claimAll);
+window.addEventListener('focus', claimAll);
+
+function afterReplay(e: Entry) {
+  if (!e.awaitingReplay) return;
+  e.awaitingReplay = false;
+  e.term.write('', () => {
+    e.needsRedraw = e.term.buffer.active.type === 'alternate';
+    claimSize(e, true);
+  });
 }
 
 export function getTerm(termId: string, ink: boolean, accent: string): Entry {
@@ -152,9 +203,27 @@ export function getTerm(termId: string, ink: boolean, accent: string): Entry {
   term.loadAddon(new WebLinksAddon((_ev, uri) => window.open(uri, '_blank')));
   const el = document.createElement('div');
   el.className = 'term-host';
-  e = { term, fit, el, ws: null, opened: false, closed: false, gone: false, disposed: false, accent, ink };
+  e = {
+    term,
+    fit,
+    el,
+    ws: null,
+    opened: false,
+    closed: false,
+    gone: false,
+    disposed: false,
+    accent,
+    ink,
+    ptySize: null,
+    connectedBefore: false,
+    awaitingReplay: false,
+    needsRedraw: false,
+  };
   const entry = e;
-  term.onData((d) => entry.ws?.readyState === WebSocket.OPEN && entry.ws.send(d));
+  term.onData((d) => {
+    claimSize(entry);
+    if (entry.ws?.readyState === WebSocket.OPEN) entry.ws.send(d);
+  });
   registry.set(termId, e);
   connect(termId, e);
   return e;
@@ -174,9 +243,11 @@ export function mountTerm(termId: string, container: HTMLElement, ink: boolean, 
       e.term.loadAddon(gl);
     } catch {}
     touchScroll(e);
-    // The same terminal can be open on the Mac and a phone; whichever one you type in sets its size.
+    // Using this device takes the shared terminal's size back (see claimSize).
     const entry = e;
-    e.term.textarea?.addEventListener('focus', () => sendSize(entry));
+    e.term.textarea?.addEventListener('focus', () => claimSize(entry));
+    e.el.addEventListener('pointerdown', () => claimSize(entry));
+    e.el.addEventListener('pointermove', () => claimSize(entry));
   }
   fitTerm(termId);
   return e;
