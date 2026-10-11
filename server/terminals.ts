@@ -1,11 +1,18 @@
 import { EventEmitter } from 'node:events';
+import { spawn } from 'node:child_process';
+import fs from 'node:fs';
+import net from 'node:net';
 import os from 'node:os';
+import path from 'node:path';
 import { randomUUID } from 'node:crypto';
-import * as pty from 'node-pty';
+import { fileURLToPath } from 'node:url';
 import type { WebSocket } from 'ws';
 import { shellEnv } from './shell.ts';
+import { DATA_DIR } from './store.ts';
+import type { HostTerm } from './pty-host.ts';
 
 const SCROLLBACK_BYTES = 512 * 1024;
+const HOST_SOCK = path.join(DATA_DIR, 'pty.sock');
 
 export type TermInfo = {
   id: string;
@@ -18,7 +25,8 @@ export type TermInfo = {
 };
 
 type Term = TermInfo & {
-  proc: pty.IPty;
+  cols: number;
+  rows: number;
   buffer: string;
   clients: Set<WebSocket>;
   parser: OscParser;
@@ -77,12 +85,141 @@ class OscParser {
 
 export type TermNotification = { termId: string; title: string; body: string; source: string };
 
+type Msg = Record<string, any>;
+
+/** Connection to the pty host (server/pty-host.ts), started on demand and left running across restarts. */
+class PtyHost {
+  private sock: net.Socket | null = null;
+  private replies = new Map<string, (m: Msg) => void>();
+  onMessage: (m: Msg) => void = () => {};
+  onLost: () => void = () => {};
+
+  async connect(): Promise<HostTerm[]> {
+    for (let i = 0; i < 60 && !this.sock; i++) {
+      try {
+        await this.open();
+      } catch {
+        if (i === 0) startHost();
+        await new Promise((r) => setTimeout(r, 150));
+      }
+    }
+    if (!this.sock) throw new Error(`pty host did not start (see ${path.join(DATA_DIR, 'pty-host.log')})`);
+    const hello = await this.request({ op: 'hello' }, 'hello');
+    return hello.terms;
+  }
+
+  private open() {
+    return new Promise<void>((resolve, reject) => {
+      const sock = net.connect(HOST_SOCK);
+      sock.once('error', reject);
+      sock.once('connect', () => {
+        sock.off('error', reject);
+        sock.on('error', () => {});
+        this.sock = sock;
+        let buf = '';
+        sock.setEncoding('utf8');
+        sock.on('data', (chunk: string) => {
+          buf += chunk;
+          let nl;
+          while ((nl = buf.indexOf('\n')) !== -1) {
+            const msg = JSON.parse(buf.slice(0, nl));
+            buf = buf.slice(nl + 1);
+            const key = msg.req || (msg.op === 'hello' ? 'hello' : '');
+            const reply = key && this.replies.get(key);
+            if (reply) {
+              this.replies.delete(key);
+              reply(msg);
+            } else this.onMessage(msg);
+          }
+        });
+        sock.on('close', () => {
+          if (this.sock !== sock) return;
+          this.sock = null;
+          this.onLost();
+        });
+        resolve();
+      });
+    });
+  }
+
+  send(msg: Msg) {
+    this.sock?.write(JSON.stringify(msg) + '\n');
+  }
+
+  request(msg: Msg, key: string = randomUUID()): Promise<Msg> {
+    return new Promise((resolve) => {
+      this.replies.set(key, resolve);
+      this.send({ ...msg, req: key === 'hello' ? undefined : key });
+    });
+  }
+}
+
+function startHost() {
+  const log = fs.openSync(path.join(DATA_DIR, 'pty-host.log'), 'a');
+  const script = fileURLToPath(new URL('./pty-host.ts', import.meta.url));
+  // Detached into its own session so a server restart (tsx watch) doesn't take it down.
+  spawn(process.execPath, ['--import', import.meta.resolve('tsx'), script, '--serve', HOST_SOCK], {
+    detached: true,
+    stdio: ['ignore', log, log],
+  }).unref();
+}
+
 export class TerminalManager extends EventEmitter {
   private terms = new Map<string, Term>();
   private lastBell = new Map<string, number>();
+  private host = new PtyHost();
 
   constructor(private baseUrl: string) {
     super();
+    this.host.onMessage = (msg) => {
+      const term = this.terms.get(msg.id);
+      if (!term) return;
+      if (msg.op === 'data') this.output(term, msg.data);
+      else if (msg.op === 'exit') this.exited(term);
+    };
+    // The host itself died (rare): its terminals went with it. Panes see 'gone' and respawn.
+    this.host.onLost = () => {
+      for (const t of this.terms.values()) for (const ws of t.clients) ws.close(4404, 'no such terminal');
+      this.terms.clear();
+      this.emit('changed');
+      this.start().catch((e) => console.error('[studio]', e.message));
+    };
+  }
+
+  /** Connects to the pty host (starting it if needed) and picks up terminals that outlived the last server. */
+  async start() {
+    for (const h of await this.host.connect()) {
+      const { buffer, ...info } = h;
+      this.terms.set(h.id, { ...info, exited: false, buffer, clients: new Set(), parser: this.parser(h.id) });
+    }
+    this.emit('changed');
+  }
+
+  private parser(id: string) {
+    return new OscParser(
+      () => this.bell(id),
+      (payload) => this.handleOsc(id, payload),
+    );
+  }
+
+  private output(term: Term, data: string) {
+    term.buffer += data;
+    if (term.buffer.length > SCROLLBACK_BYTES) term.buffer = term.buffer.slice(-SCROLLBACK_BYTES);
+    term.parser.feed(data);
+    for (const ws of term.clients) if (ws.readyState === 1) ws.send(data);
+  }
+
+  private exited(term: Term) {
+    term.exited = true;
+    for (const ws of term.clients) ws.close(1000, 'exited');
+    this.terms.delete(term.id);
+    this.emit('changed');
+  }
+
+  private resize(term: Term, cols: number, rows: number) {
+    term.cols = cols;
+    term.rows = rows;
+    this.host.send({ op: 'resize', id: term.id, cols, rows });
   }
 
   list(): TermInfo[] {
@@ -94,7 +231,7 @@ export class TerminalManager extends EventEmitter {
     return t ? strip(t) : undefined;
   }
 
-  create(opts: { cwd?: string; command?: string | null; cols?: number; rows?: number; accent?: string; theme?: string }): TermInfo {
+  async create(opts: { cwd?: string; command?: string | null; cols?: number; rows?: number; accent?: string; theme?: string }): Promise<TermInfo> {
     const id = randomUUID().slice(0, 8);
     const cwd = opts.cwd || os.homedir();
     const shell = process.env.SHELL || '/bin/zsh';
@@ -107,11 +244,35 @@ export class TerminalManager extends EventEmitter {
     const env = Object.fromEntries(
       Object.entries(process.env).filter(([k]) => !/^(CLAUDECODE|CLAUDE_CODE_|CLAUDE_PID$|CLAUDE_EFFORT$)/.test(k)),
     );
-    const proc = pty.spawn(shell, args, {
-      name: 'xterm-256color',
-      cols: opts.cols || 100,
-      rows: opts.rows || 30,
+    const cols = opts.cols || 100;
+    const rows = opts.rows || 30;
+    const title = opts.command ? opts.command.split(' ')[0] : shell.split('/').pop()!;
+    // Registered before the host replies: its first output can arrive in the same read as the reply.
+    const term: Term = {
+      id,
       cwd,
+      command: opts.command || null,
+      title,
+      pid: 0,
+      createdAt: Date.now(),
+      exited: false,
+      cols,
+      rows,
+      buffer: '',
+      clients: new Set(),
+      parser: this.parser(id),
+    };
+    this.terms.set(id, term);
+    const created = await this.host.request({
+      op: 'create',
+      id,
+      shell,
+      args,
+      cwd,
+      cols,
+      rows,
+      command: opts.command || null,
+      title,
       env: {
         ...env,
         ...shellEnv(shell, opts.accent, opts.theme),
@@ -123,40 +284,13 @@ export class TerminalManager extends EventEmitter {
         CLAUDE_CODE_SCROLL_SPEED: process.env.CLAUDE_CODE_SCROLL_SPEED || '4',
         STUDIO_URL: this.baseUrl,
         STUDIO_TERMINAL_ID: id,
-      } as Record<string, string>,
+      },
     });
-
-    const term: Term = {
-      id,
-      cwd,
-      command: opts.command || null,
-      title: opts.command ? opts.command.split(' ')[0] : shell.split('/').pop()!,
-      pid: proc.pid,
-      createdAt: Date.now(),
-      exited: false,
-      proc,
-      buffer: '',
-      clients: new Set(),
-      parser: new OscParser(
-        () => this.bell(id),
-        (payload) => this.handleOsc(id, payload),
-      ),
-    };
-    this.terms.set(id, term);
-
-    proc.onData((data) => {
-      term.buffer += data;
-      if (term.buffer.length > SCROLLBACK_BYTES) term.buffer = term.buffer.slice(-SCROLLBACK_BYTES);
-      term.parser.feed(data);
-      for (const ws of term.clients) if (ws.readyState === 1) ws.send(data);
-    });
-    proc.onExit(() => {
-      term.exited = true;
-      for (const ws of term.clients) ws.close(1000, 'exited');
+    if (created.error) {
       this.terms.delete(id);
-      this.emit('changed');
-    });
-
+      throw new Error(created.error);
+    }
+    term.pid = created.pid;
     this.emit('changed');
     return strip(term);
   }
@@ -170,7 +304,7 @@ export class TerminalManager extends EventEmitter {
     term.clients.add(ws);
     if (term.buffer) ws.send(term.buffer);
     // Ends the replay and tells this viewer the pty's size (another device may have set it).
-    ws.send('\x00' + JSON.stringify({ t: 'size', cols: term.proc.cols, rows: term.proc.rows }));
+    ws.send('\x00' + JSON.stringify({ t: 'size', cols: term.cols, rows: term.rows }));
     ws.on('message', (raw) => {
       const msg = raw.toString();
       if (msg.startsWith('\x00')) {
@@ -181,9 +315,9 @@ export class TerminalManager extends EventEmitter {
             if (ctl.redraw) {
               // Replayed output of a full-screen app (Claude) usually starts mid-frame, and a resize to the
               // same size doesn't make it repaint. Nudge the height so it redraws everything.
-              term.proc.resize(ctl.cols, Math.max(2, ctl.rows - 1));
-              setTimeout(() => !term.exited && term.proc.resize(ctl.cols, ctl.rows), 50);
-            } else term.proc.resize(ctl.cols, ctl.rows);
+              this.resize(term, ctl.cols, Math.max(2, ctl.rows - 1));
+              setTimeout(() => !term.exited && this.resize(term, ctl.cols, ctl.rows), 50);
+            } else this.resize(term, ctl.cols, ctl.rows);
             // Every viewer learns the new size, so another device can take it back when it's used.
             const size = '\x00' + JSON.stringify({ t: 'size', cols: ctl.cols, rows: ctl.rows });
             for (const c of term.clients) if (c.readyState === 1) c.send(size);
@@ -191,7 +325,7 @@ export class TerminalManager extends EventEmitter {
         } catch {}
         return;
       }
-      term.proc.write(msg);
+      this.host.send({ op: 'write', id, data: msg });
     });
     ws.on('close', () => term.clients.delete(ws));
   }
@@ -199,14 +333,14 @@ export class TerminalManager extends EventEmitter {
   write(id: string, text: string) {
     const term = this.terms.get(id);
     if (!term) return false;
-    term.proc.write(text);
+    this.host.send({ op: 'write', id, data: text });
     return true;
   }
 
   kill(id: string) {
     const term = this.terms.get(id);
     if (!term) return false;
-    term.proc.kill();
+    this.host.send({ op: 'kill', id });
     return true;
   }
 
@@ -214,6 +348,7 @@ export class TerminalManager extends EventEmitter {
     const term = this.terms.get(id);
     if (term && term.cwd !== cwd) {
       term.cwd = cwd;
+      this.host.send({ op: 'meta', id, cwd });
       this.emit('changed');
     }
   }
@@ -234,6 +369,7 @@ export class TerminalManager extends EventEmitter {
     if (code === '0' || code === '2') {
       if (rest && rest !== term.title) {
         term.title = rest;
+        this.host.send({ op: 'meta', id, title: rest });
         this.emit('changed');
       }
     } else if (code === '7') {
@@ -256,9 +392,6 @@ export class TerminalManager extends EventEmitter {
     this.emit('notification', n);
   }
 
-  dispose() {
-    for (const t of this.terms.values()) t.proc.kill();
-  }
 }
 
 function strip(t: Term): TermInfo {

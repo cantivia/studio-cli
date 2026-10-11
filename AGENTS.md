@@ -29,7 +29,8 @@ The user opens http://127.0.0.1:4610, usually as the installed Chrome app. Both 
 ```
 server/                  Node (tsx), Express + ws + node-pty
   index.ts               HTTP API, WebSocket routes, 2s poller (cwd, ports, git, PR, Claude status, office states)
-  terminals.ts           pty lifecycle, scrollback replay, OSC/BEL parser → notifications
+  terminals.ts           terminal state, scrollback replay, OSC/BEL parser → notifications; talks to pty-host
+  pty-host.ts            long-lived process that owns the ptys (unix socket ~/.studio-cli/pty.sock), survives server restarts
   shell.ts               zsh integration written to ~/.studio-cli/zsh (ZDOTDIR): prompt, OSC 7 cwd, long-command notifications, Claude theme
   claude.ts              reads ~/.claude: live sessions/<pid>.json, transcripts (activity), session list, skills/commands
   meta.ts                ps / lsof / git / gh helpers
@@ -72,7 +73,7 @@ bin/studio               tiny CLI: studio notify | send | ls
 - **zustand v5 selectors** that build new arrays or objects cause infinite render loops. Use `useShallow` or return primitives.
 - **Claude Code's theme**: on paper (light) terminals Studio runs Claude with `--settings '{"theme":"light"}'` through a zsh function, and `terms.ts` strips the light theme's grey user-message background. The user's global `~/.claude/settings.json` is never touched.
 - **Resume only saved conversations.** A Claude session that never got a message has no transcript, and `--resume` fails. The server checks `transcriptExists()` before swapping in `--resume`.
-- **Editing `server/` in dev restarts the server and kills every terminal**, including the user's real work. Claude panes respawn on the same conversation, but shells lose their state. Batch server edits, and say so when you restart.
+- **Editing `server/` in dev restarts the server**, but terminals live on in the pty host (`server/pty-host.ts`) and the server picks them up again. Editing `pty-host.ts` itself only takes effect after the host is restarted (kill it), and that does end every terminal, so say so first. The host log is `~/.studio-cli/pty-host.log`.
 - **Keyboard shortcuts in a browser.** ⌘T, ⌘W and ⌘N belong to Chrome. Studio uses ⌥⌘T (new terminal), ⌥⌘N (new workspace), ⌘D / ⌘⇧D (split), ⌘⏎ (zoom), ⌘K (palette), ⌘⇧U (latest unread), ⌃1–9 (switch workspace). Shortcuts are registered in the capture phase so they beat the focused xterm.
 
 ## Conventions

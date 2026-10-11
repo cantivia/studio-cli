@@ -197,7 +197,7 @@ app.post(
     // Respawning a Claude pane: resume its conversation only if one was actually saved.
     if (resume && typeof command === 'string' && command.startsWith('claude') && (await transcriptExists(resume)))
       command = `claude --resume ${resume}`;
-    const term = terms.create({ cwd, command, cols, rows, accent, theme });
+    const term = await terms.create({ cwd, command, cols, rows, accent, theme });
     if (paneId) paneTerms.set(paneId, term.id);
     res.json(term);
   }),
@@ -341,11 +341,15 @@ server.on('upgrade', async (req, socket, head) => {
   });
 });
 
-server.listen(PORT, HOST, () => console.log(`[studio] server on ${BASE_URL}`));
+// Terminals live in the pty host, so they outlive this process: connect (and pick them up) before serving.
+terms
+  .start()
+  .then(() => server.listen(PORT, HOST, () => console.log(`[studio] server on ${BASE_URL}`)))
+  .catch((e) => {
+    console.error('[studio]', e.message);
+    process.exit(1);
+  });
 
-const shutdown = () => {
-  terms.dispose();
-  process.exit(0);
-};
+const shutdown = () => process.exit(0);
 process.on('SIGINT', shutdown);
 process.on('SIGTERM', shutdown);
