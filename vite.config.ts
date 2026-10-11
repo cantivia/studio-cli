@@ -28,7 +28,9 @@ export default defineConfig({
     port: 4610,
     host: '127.0.0.1',
     proxy: {
-      '/api': 'http://127.0.0.1:4600',
+      // Object form on purpose: the string shorthand sets changeOrigin, which rewrites Host to
+      // 127.0.0.1 and makes server/access.ts refuse remote (studio-cli.cantivia.com) API calls.
+      '/api': { target: 'http://127.0.0.1:4600', changeOrigin: false },
       '/ws': { target: 'ws://127.0.0.1:4600', ws: true },
     },
   },
