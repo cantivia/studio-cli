@@ -1,6 +1,6 @@
 // Studio CLI service worker. Only page navigations are handled: when the local
 // server is down, show a page explaining how to start it instead of Chrome's error.
-const CACHE = 'studio-cli-v2';
+const CACHE = 'studio-cli-v3';
 const SHELL = ['/offline.html', '/icon-192.png'];
 
 self.addEventListener('install', (e) => {

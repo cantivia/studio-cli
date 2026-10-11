@@ -18,7 +18,12 @@
 <body><div class="card">
   <img src="/icon-192.png" alt="">
   <h1>Studio CLI isn't running</h1>
-  <p>Start the local server, then reload.</p>
+  <p>Start the local server. This page reloads on its own once it's up.</p>
   <code>cd ~/studio-cli &amp;&amp; npm run dev</code><br>
   <button onclick="location.reload()">Reload</button>
-</div></body></html>
+</div>
+<script>
+  // Plain fetches skip the service worker's navigation fallback, so this hits the real server.
+  setInterval(() => fetch('/api/state', { cache: 'no-store' }).then((r) => r.ok && location.reload(), () => {}), 2000);
+</script>
+</body></html>
