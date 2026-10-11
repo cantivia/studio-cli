@@ -102,7 +102,7 @@ export function CommandPalette() {
             animate={{ y: 0, scale: 1 }}
             transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
             onMouseDown={(e) => e.stopPropagation()}
-            className="surface h-fit max-h-[60vh] w-[600px] overflow-hidden rounded-[22px]"
+            className="surface h-fit max-h-[60vh] w-[min(600px,calc(100vw-24px))] overflow-hidden rounded-[22px]"
           >
             <div className="flex items-center gap-3 border-b border-[var(--line)] px-5 py-3.5">
               <Search size={16} className="text-faint" />

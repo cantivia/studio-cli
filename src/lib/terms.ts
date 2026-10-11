@@ -2,6 +2,7 @@ import { Terminal, type ITheme } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import { WebLinksAddon } from '@xterm/addon-web-links';
 import { WebglAddon } from '@xterm/addon-webgl';
+import { isPhone } from './device';
 import '@xterm/xterm/css/xterm.css';
 
 /**
@@ -27,6 +28,13 @@ type Entry = {
 const registry = new Map<string, Entry>();
 const CLAUDE_LIGHT_MSG_BG = '\x1b[48;2;240;240;240m';
 const listeners = new Set<() => void>();
+/** ~9% of the accent over the paper background, as a truecolor background escape. */
+function msgTint(accent: string) {
+  const n = parseInt(accent.slice(1), 16);
+  const paper = [0xfb, 0xf9, 0xf4];
+  const mix = [(n >> 16) & 255, (n >> 8) & 255, n & 255].map((c, i) => Math.round(paper[i] + (c - paper[i]) * 0.09));
+  return `\x1b[48;2;${mix.join(';')}m`;
+}
 const changed = () => listeners.forEach((fn) => fn());
 
 export function subscribe(fn: () => void) {
@@ -102,8 +110,8 @@ function connect(termId: string, e: Entry) {
   e.ws = ws;
   ws.onmessage = (ev) => {
     const data = typeof ev.data === 'string' ? ev.data : '';
-    // Paper terminals: Claude's light theme puts your messages in a pale grey box; show them as plain text instead.
-    e.term.write(e.ink ? data : data.replaceAll(CLAUDE_LIGHT_MSG_BG, '\x1b[49m'));
+    // Paper terminals: Claude's light theme puts your messages in a grey box; swap it for a faint wash of the workspace colour.
+    e.term.write(e.ink ? data : data.replaceAll(CLAUDE_LIGHT_MSG_BG, msgTint(e.accent)));
   };
   ws.onopen = () => sendSize(e);
   ws.onclose = (ev) => {
@@ -128,13 +136,15 @@ export function getTerm(termId: string, ink: boolean, accent: string): Entry {
   if (e) return e;
   const term = new Terminal({
     fontFamily: '"JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace',
-    fontSize: 13,
+    fontSize: isPhone() ? 11 : 13,
     lineHeight: 1.25,
     cursorBlink: true,
     cursorStyle: 'bar',
     allowProposedApi: true,
     macOptionIsMeta: true,
     scrollback: 10000,
+    // Default trackpad/wheel scrolling felt slow; this doubles it (hold ⌥ for faster still).
+    scrollSensitivity: 2,
     theme: themeFor(ink, accent),
   });
   const fit = new FitAddon();
@@ -163,6 +173,10 @@ export function mountTerm(termId: string, container: HTMLElement, ink: boolean, 
       gl.onContextLoss(() => gl.dispose());
       e.term.loadAddon(gl);
     } catch {}
+    touchScroll(e);
+    // The same terminal can be open on the Mac and a phone; whichever one you type in sets its size.
+    const entry = e;
+    e.term.textarea?.addEventListener('focus', () => sendSize(entry));
   }
   fitTerm(termId);
   return e;
@@ -176,6 +190,69 @@ export function fitTerm(termId: string) {
     e.fit.fit();
     if (cols !== e.term.cols || rows !== e.term.rows) sendSize(e);
   } catch {}
+}
+
+/**
+ * iPad/iPhone: a one-finger drag scrolls. A shell scrolls its history; a full-screen app like
+ * Claude gets mouse-wheel reports (what a real wheel sends it), or arrow keys if it takes no mouse.
+ * xterm ignores synthetic wheel events, hence doing it by hand.
+ */
+function touchScroll(e: Entry) {
+  let lastY: number | null = null;
+  let acc = 0;
+  e.el.addEventListener('touchstart', (ev) => ((lastY = ev.touches.length === 1 ? ev.touches[0].clientY : null), (acc = 0)), { passive: true, capture: true });
+  e.el.addEventListener(
+    'touchmove',
+    (ev) => {
+      if (lastY === null) return;
+      const t = ev.touches[0];
+      acc += lastY - t.clientY;
+      lastY = t.clientY;
+      ev.preventDefault();
+      ev.stopPropagation();
+      const cell = e.el.clientHeight / e.term.rows || 16;
+      const lines = Math.trunc(acc / cell);
+      if (!lines) return;
+      acc -= lines * cell;
+      if (e.term.buffer.active.type === 'normal') return e.term.scrollLines(lines);
+      if (e.ws?.readyState !== WebSocket.OPEN) return;
+      const r = e.el.getBoundingClientRect();
+      const col = Math.max(1, Math.ceil(((t.clientX - r.left) / r.width) * e.term.cols));
+      const row = Math.max(1, Math.ceil(((t.clientY - r.top) / r.height) * e.term.rows));
+      const one =
+        e.term.modes.mouseTrackingMode !== 'none' ? `\x1b[<${lines > 0 ? 65 : 64};${col};${row}M` : lines > 0 ? '\x1b[B' : '\x1b[A';
+      e.ws.send(one.repeat(Math.abs(lines)));
+    },
+    { passive: false, capture: true },
+  );
+}
+
+/** True when the shell is scrolled up into its history (never for full-screen apps like Claude). */
+export function isScrolledUp(termId: string) {
+  const b = registry.get(termId)?.term.buffer.active;
+  return !!b && b.type === 'normal' && b.viewportY < b.baseY;
+}
+
+export function onTermScroll(termId: string, fn: () => void) {
+  const e = registry.get(termId);
+  if (!e) return () => {};
+  const subs = [e.term.onScroll(fn), e.term.onWriteParsed(fn), e.term.buffer.onBufferChange(fn)];
+  return () => subs.forEach((d) => d.dispose());
+}
+
+export type KeyName = 'esc' | 'tab' | 'shift-tab' | 'up' | 'down' | 'left' | 'right' | 'ctrl-c';
+
+/** Sends a key the on-screen keyboard lacks, as the terminal itself would encode it. */
+export function sendKey(termId: string, key: KeyName) {
+  const e = registry.get(termId);
+  if (e?.ws?.readyState !== WebSocket.OPEN) return;
+  const arrow = (c: string) => (e.term.modes.applicationCursorKeysMode ? `\x1bO${c}` : `\x1b[${c}`);
+  const seq = { esc: '\x1b', tab: '\t', 'shift-tab': '\x1b[Z', up: arrow('A'), down: arrow('B'), right: arrow('C'), left: arrow('D'), 'ctrl-c': '\x03' }[key];
+  e.ws.send(seq);
+}
+
+export function scrollToBottom(termId: string) {
+  registry.get(termId)?.term.scrollToBottom();
 }
 
 export function focusTerm(termId: string) {

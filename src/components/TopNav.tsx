@@ -1,6 +1,7 @@
 import { motion } from 'framer-motion';
-import { Bell, Command, Gamepad2, History, LayoutGrid } from 'lucide-react';
+import { Bell, Command, Gamepad2, History, LayoutGrid, Menu } from 'lucide-react';
 import { useStore } from '../lib/store';
+import { useIsPhone } from '../lib/device';
 import type { Mode } from '../lib/types';
 
 const TABS: { id: Mode; label: string; icon: typeof LayoutGrid }[] = [
@@ -15,11 +16,23 @@ export function TopNav() {
   const set = useStore((s) => s.set);
   const unread = useStore((s) => s.notifications.filter((n) => !n.read).length);
   const busy = useStore((s) => Object.values(s.meta).filter((m) => m.claude?.status === 'busy').length);
+  const phone = useIsPhone();
 
   return (
-    <header className="drag relative z-20 grid h-[60px] shrink-0 grid-cols-[1fr_auto_1fr] items-center px-5">
+    <header
+      className={`drag relative z-20 grid shrink-0 grid-cols-[1fr_auto_1fr] items-center ${phone ? 'h-[52px] px-3' : 'h-[60px] px-5'}`}
+    >
       <div className="flex min-w-0 items-center gap-2 text-[12px] font-medium text-muted">
-        {busy > 0 ? (
+        {phone ? (
+          <button
+            onClick={() => set({ navOpen: true })}
+            className="liquid-glass relative grid h-9 w-9 place-items-center rounded-full text-ink"
+            title="Menu"
+          >
+            <Menu size={17} />
+            {busy > 0 && <span className="absolute right-1 top-1 h-2 w-2 rounded-full dot-busy" />}
+          </button>
+        ) : busy > 0 ? (
           <>
             <span className="h-2 w-2 rounded-full dot-busy" />
             <span className="shimmer-text">
@@ -39,7 +52,8 @@ export function TopNav() {
             <button
               key={t.id}
               onClick={() => setMode(t.id)}
-              className={`relative flex items-center gap-2 rounded-full px-4 py-1.5 text-[13px] font-medium transition-colors duration-300 ${
+              title={t.label}
+              className={`relative flex items-center gap-2 rounded-full ${phone ? 'px-3.5 py-2' : 'px-4 py-1.5'} text-[13px] font-medium transition-colors duration-300 ${
                 active ? 'text-white' : 'text-muted hover:text-ink'
               }`}
             >
@@ -51,21 +65,23 @@ export function TopNav() {
                 />
               )}
               <Icon size={14} className="relative" />
-              <span className="relative">{t.label}</span>
+              {!phone && <span className="relative">{t.label}</span>}
             </button>
           );
         })}
       </nav>
 
       <div className="flex min-w-0 items-center justify-end gap-2">
-        <button
-          onClick={() => set({ paletteOpen: true })}
-          className="liquid-glass flex items-center gap-2 rounded-full py-1.5 pl-3 pr-2 text-[12px] font-medium text-muted transition hover:text-ink"
-        >
-          <Command size={13} />
-          Commands
-          <kbd>⌘K</kbd>
-        </button>
+        {!phone && (
+          <button
+            onClick={() => set({ paletteOpen: true })}
+            className="liquid-glass flex items-center gap-2 rounded-full py-1.5 pl-3 pr-2 text-[12px] font-medium text-muted transition hover:text-ink"
+          >
+            <Command size={13} />
+            Commands
+            <kbd>⌘K</kbd>
+          </button>
+        )}
         <button
           onClick={() => set({ notificationsOpen: true })}
           className="liquid-glass relative grid h-8 w-8 place-items-center rounded-full text-muted transition hover:text-ink"

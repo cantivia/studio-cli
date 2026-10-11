@@ -4,11 +4,19 @@ import { useStore } from '../lib/store';
 import { panes } from '../lib/layout';
 import { hue } from '../lib/colors';
 import { basename } from '../lib/api';
+import type { TermMeta, Workspace } from '../lib/types';
+
+/** A workspace's office name: what the user called it, else its folder (as in the sidebar). */
+export function officeName(w: Workspace, meta: Record<string, TermMeta>) {
+  const first = panes(w.root).find((p) => p.kind === 'terminal');
+  const cwd = first?.kind === 'terminal' ? (first.termId && meta[first.termId]?.cwd) || first.cwd : '';
+  return w.customName || !cwd ? w.name : basename(cwd);
+}
 
 type Office = { key: string; name: string; color: string; count: number; busy: number; icon?: 'all' | 'claude' };
 
 /**
- * One pixel office per workspace, plus "Everyone" and the Claude room. Every open
+ * "Everyone" (a building with one room per workspace) plus one office per workspace. Every open
  * terminal is a character (art and engine: Pixel Agents, MIT). Studio's server
  * drives them: typing while Claude edits or a command runs, reading while Claude
  * searches, a green check when a turn or long command finishes. Click a character
@@ -32,9 +40,7 @@ export function PixelOffice() {
     const ids = (list: { kind: string; termId?: string | null }[]) => list.flatMap((p) => (p.kind === 'terminal' && p.termId ? [p.termId] : []));
     const list: Office[] = [{ key: 'all', name: 'Everyone', color: '#1d1d1f', icon: 'all', ...stats(terminals.map((t) => t.id)) }];
     for (const w of workspaces) {
-      const first = panes(w.root).find((p) => p.kind === 'terminal');
-      const cwd = first?.kind === 'terminal' ? (first.termId && meta[first.termId]?.cwd) || first.cwd : '';
-      list.push({ key: w.id, name: w.customName || !cwd ? w.name : basename(cwd), color: hue(w.color).glow, ...stats(ids(panes(w.root))) });
+      list.push({ key: w.id, name: officeName(w, meta), color: hue(w.color).glow, ...stats(ids(panes(w.root))) });
     }
     return list;
   }, [workspaces, meta, terminals]);

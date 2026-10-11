@@ -9,7 +9,7 @@ import type { Pane } from './lib/types';
 import { Sidebar } from './components/Sidebar';
 import { TopNav } from './components/TopNav';
 import { WorkspaceView } from './components/WorkspaceView';
-import { PixelOffice } from './components/PixelOffice';
+import { officeName, PixelOffice } from './components/PixelOffice';
 import { Sessions } from './components/Sessions';
 import { NotificationPanel } from './components/NotificationPanel';
 import { CommandPalette } from './components/CommandPalette';
@@ -17,6 +17,7 @@ import { NewWorkspaceDialog } from './components/NewWorkspaceDialog';
 import { InkField } from './components/InkField';
 import { useWorkflowAutoAdvance } from './lib/runs';
 import { StudioIntro } from './components/intro/StudioIntro';
+import { useIsPhone } from './lib/device';
 
 function useEventStream() {
   const setServer = useStore((s) => s.setServer);
@@ -76,18 +77,23 @@ export function jumpToTerminal(termId: string) {
   api.markRead({ termId });
 }
 
-/** Tells the server which terminals belong to which office (one per workspace, plus the Claude room). */
+/** Tells the server which terminals belong to which workspace's office (and room in "Everyone"). */
 function useOfficeSync() {
-  const workspaces = useStore((s) => s.workspaces);
   const ready = useStore((s) => s.ready);
+  // meta changes every poll but only the names drawn from it matter: select a string so App re-renders only on a real change.
+  const defs = useStore((s) =>
+    JSON.stringify(
+      s.workspaces.map((w) => ({
+        key: w.id,
+        name: officeName(w, s.meta),
+        color: hue(w.color).glow,
+        termIds: panes(w.root).flatMap((p: Pane) => (p.kind === 'terminal' && p.termId ? [p.termId] : [])),
+      })),
+    ),
+  );
   useEffect(() => {
-    if (!ready) return;
-    const termIds = (list: Pane[]) => list.flatMap((p) => (p.kind === 'terminal' && p.termId ? [p.termId] : []));
-    const defs = [
-      ...workspaces.map((w) => ({ key: w.id, name: w.name, color: hue(w.color).glow, termIds: termIds(panes(w.root)) })),
-    ];
-    api.put('/api/offices', defs).catch(() => {});
-  }, [workspaces, ready]);
+    if (ready) api.put('/api/offices', JSON.parse(defs)).catch(() => {});
+  }, [defs, ready]);
 }
 
 function jumpToLatestUnread() {
@@ -133,6 +139,9 @@ export default function App() {
   const mode = useStore((s) => s.mode);
   const ready = useStore((s) => s.ready);
   const ink = useStore((s) => s.inkTerminals);
+  const phone = useIsPhone();
+  const navOpen = useStore((s) => s.navOpen);
+  const set = useStore((s) => s.set);
 
   useEffect(() => setTheme(ink), [ink]);
   useOfficeSync();
@@ -152,11 +161,25 @@ export default function App() {
   }, []);
 
   return (
-    <div className="relative flex h-full w-full">
+    <div className="safe-area relative flex h-full w-full">
       <InkField />
-      <div className="relative z-10 h-full w-[272px] shrink-0 overflow-hidden">
-        <Sidebar />
-      </div>
+      {phone ? (
+        <>
+          <div
+            onClick={() => set({ navOpen: false })}
+            className={`fixed inset-0 z-40 bg-black/20 transition-opacity duration-300 ${navOpen ? 'opacity-100' : 'pointer-events-none opacity-0'}`}
+          />
+          <div
+            className={`safe-area fixed inset-y-0 left-0 z-50 w-[86vw] max-w-[320px] bg-[var(--canvas)] shadow-2xl transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] ${navOpen ? 'translate-x-0' : '-translate-x-full'}`}
+          >
+            <Sidebar />
+          </div>
+        </>
+      ) : (
+        <div className="relative z-10 h-full w-[272px] shrink-0 overflow-hidden">
+          <Sidebar />
+        </div>
+      )}
       <main className="relative z-10 flex min-w-0 flex-1 flex-col">
         <TopNav />
         {!ready && (

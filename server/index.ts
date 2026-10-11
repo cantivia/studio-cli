@@ -12,6 +12,7 @@ import { listSessions, listSlashCommands, readActivity, readClaudeProcs, transcr
 import { customCommands, listDirs, loadWorkflows, saveWorkflows } from './store.ts';
 import { installShellIntegration } from './shell.ts';
 import { offices, toolStatus, type AgentState } from './offices.ts';
+import { checkAccess, isAllowedOrigin, remoteConfig } from './access.ts';
 
 installShellIntegration();
 
@@ -159,6 +160,10 @@ async function agentState(
 
 // ── HTTP API ────────────────────────────────────────────────────────────────
 const app = express();
+// Requests from this Mac pass; remote ones (Cloudflare Tunnel) need a valid Access login.
+app.use((req, res, next) => {
+  checkAccess(req.headers).then((ok) => (ok ? next() : res.status(403).send('Forbidden')));
+});
 app.use(express.json({ limit: '2mb' }));
 
 const wrap =
@@ -249,7 +254,9 @@ app.get(
       r.body?.cancel().catch(() => {});
       const xfo = (r.headers.get('x-frame-options') || '').toLowerCase();
       const fa = /frame-ancestors([^;]*)/i.exec(r.headers.get('content-security-policy') || '')?.[1]?.trim().toLowerCase();
-      const allowsUs = (v: string) => v.split(/\s+/).some((t) => t === '*' || /^https?:\/\/(127\.0\.0\.1|localhost)(:\d+|:\*)?$/.test(t));
+      const remote = remoteConfig()?.host;
+      const allowsUs = (v: string) =>
+        v.split(/\s+/).some((t) => t === '*' || /^https?:\/\/(127\.0\.0\.1|localhost)(:\d+|:\*)?$/.test(t) || (!!remote && t === `https://${remote}`));
       const blocked = (xfo && /deny|sameorigin/.test(xfo)) || (fa !== undefined && !allowsUs(fa));
       res.json({ embeddable: !blocked, finalUrl: r.url });
     } catch {
@@ -292,10 +299,11 @@ if (process.env.NODE_ENV === 'production' && fs.existsSync(dist)) {
 const server = http.createServer(app);
 const wss = new WebSocketServer({ noServer: true });
 
-server.on('upgrade', (req, socket, head) => {
+server.on('upgrade', async (req, socket, head) => {
+  if (!(await checkAccess(req.headers))) return socket.end('HTTP/1.1 403 Forbidden\r\n\r\n');
   // Same-origin only: a page on another site must not be able to type into a shell.
   const origin = req.headers.origin;
-  if (origin && !/^http:\/\/(127\.0\.0\.1|localhost):\d+$/.test(origin)) return socket.destroy();
+  if (origin && !isAllowedOrigin(origin)) return socket.destroy();
   const url = new URL(req.url || '/', BASE_URL);
   wss.handleUpgrade(req, socket, head, (ws) => {
     const m = url.pathname.match(/^\/ws\/term\/([\w-]+)$/);

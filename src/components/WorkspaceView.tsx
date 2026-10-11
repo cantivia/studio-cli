@@ -10,15 +10,23 @@ import { BrowserView } from './BrowserView';
 import { Mark } from './Sidebar';
 import { hue } from '../lib/colors';
 import { ClaudePanel } from './ClaudePanel';
+import { useIsPhone } from '../lib/device';
+import { basename } from '../lib/api';
 
 export function WorkspaceView() {
   const ws = useStore((s) => s.workspaces.find((w) => w.id === s.activeId));
   const visible = useStore((s) => s.mode === 'workspaces');
+  const phone = useIsPhone();
   if (!ws) return <EmptyState />;
-  const zoomed = ws.zoomedPaneId ? findPane(ws.root, ws.zoomedPaneId) : null;
+  // A phone shows one pane at a time: the focused one (chips in the toolbar switch).
+  const zoomed = phone
+    ? findPane(ws.root, ws.focusedPaneId) || panes(ws.root)[0]
+    : ws.zoomedPaneId
+      ? findPane(ws.root, ws.zoomedPaneId)
+      : null;
   return (
-    <div className="absolute inset-0 flex flex-col px-4 pb-4">
-      <Toolbar ws={ws} />
+    <div className={`absolute inset-0 flex flex-col ${phone ? 'px-2 pb-2' : 'px-4 pb-4'}`}>
+      {phone ? <PhoneToolbar ws={ws} /> : <Toolbar ws={ws} />}
       <div className="flex min-h-0 flex-1 gap-3">
         <div className="min-h-0 min-w-0 flex-1">
           {zoomed ? <PaneView ws={ws} pane={zoomed} visible={visible} /> : <Node ws={ws} node={ws.root} visible={visible} />}
@@ -47,7 +55,8 @@ function FocusedClaudePanel({ ws }: { ws: Workspace }) {
   const open = useStore((s) => s.claudePanel);
   const set = useStore((s) => s.set);
   const claude = useFocusedClaude(ws);
-  if (!claude || !open) return null;
+  const phone = useIsPhone();
+  if (!claude || !open || phone) return null;
   return <ClaudePanel termId={claude.termId} cwd={claude.cwd} onClose={() => set({ claudePanel: false })} />;
 }
 
@@ -98,6 +107,64 @@ function Toolbar({ ws }: { ws: Workspace }) {
   );
 }
 
+const paneLabel = (p: Pane, claude: boolean) =>
+  p.kind === 'browser'
+    ? (() => {
+        try {
+          return new URL(p.url).host || 'Browser';
+        } catch {
+          return 'Browser';
+        }
+      })()
+    : p.name || (claude ? 'Claude' : p.command ? basename(p.command.split(' ')[0]) : 'Terminal');
+
+function PhoneToolbar({ ws }: { ws: Workspace }) {
+  const addPane = useStore((s) => s.addPane);
+  const focusPane = useStore((s) => s.focusPane);
+  const claudeIds = useStore(useShallow((s) => Object.keys(s.meta).filter((id) => s.meta[id]?.claude)));
+  const all = panes(ws.root);
+  const current = findPane(ws.root, ws.focusedPaneId) ? ws.focusedPaneId : all[0]?.id;
+  const h = hue(ws.color);
+  const add = 'grid h-8 w-8 shrink-0 place-items-center rounded-full text-muted transition active:scale-95';
+  return (
+    <div className="mb-2 shrink-0 space-y-2">
+      <div className="flex h-8 items-center gap-1">
+        <span className="mr-1 h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: h.glow }} />
+        <span className="min-w-0 flex-1 truncate text-[14px] font-semibold text-ink">{ws.name}</span>
+        <button onClick={() => addPane('terminal')} className={add} title="New terminal">
+          <SquareTerminal size={15} />
+        </button>
+        <button onClick={() => addPane('claude')} className={add} title="New Claude pane">
+          <Sparkles size={15} />
+        </button>
+        <button onClick={() => addPane('browser')} className={add} title="New browser pane">
+          <Globe size={15} />
+        </button>
+      </div>
+      {all.length > 1 && (
+        <div className="-mx-2 flex gap-1.5 overflow-x-auto px-2 [scrollbar-width:none]">
+          {all.map((p) => {
+            const claude = p.kind === 'terminal' && (claudeIds.includes(p.termId || '') || !!p.command?.startsWith('claude'));
+            const Icon = p.kind === 'browser' ? Globe : claude ? Sparkles : SquareTerminal;
+            const active = p.id === current;
+            return (
+              <button
+                key={p.id}
+                onClick={() => focusPane(ws.id, p.id)}
+                className={`flex h-8 shrink-0 items-center gap-1.5 rounded-full px-3 text-[12.5px] font-medium transition ${active ? 'text-white' : 'bg-white/70 text-muted'}`}
+                style={active ? { background: h.ui } : undefined}
+              >
+                <Icon size={13} />
+                <span className="max-w-[120px] truncate">{paneLabel(p, claude)}</span>
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function Node({ ws, node, visible }: { ws: Workspace; node: LayoutNode; visible: boolean }) {
   if (node.type === 'pane') return <PaneView ws={ws} pane={node.pane} visible={visible} />;
   return <Split ws={ws} node={node} visible={visible} />;
@@ -143,6 +210,7 @@ function PaneView({ ws, pane, visible }: { ws: Workspace; pane: Pane; visible: b
   const focusPane = useStore((s) => s.focusPane);
   const closePane = useStore((s) => s.closePane);
   const toggleZoom = useStore((s) => s.toggleZoom);
+  const phone = useIsPhone();
   const focused = ws.focusedPaneId === pane.id;
   const onFocus = () => !focused && focusPane(ws.id, pane.id);
   const split = (dir: 'row' | 'col', next?: Pane) => {
@@ -152,15 +220,18 @@ function PaneView({ ws, pane, visible }: { ws: Workspace; pane: Pane; visible: b
   const ports = useStore(
     useShallow((s) => [...new Set(panes(ws.root).flatMap((p) => (p.kind === 'terminal' && p.termId ? s.meta[p.termId]?.ports || [] : [])))]),
   );
-  const actions = {
-    split: (dir: 'row' | 'col') => split(dir),
-    browser: () => split('row', { id: uid(), kind: 'browser', url: ports[0] ? `http://localhost:${ports[0]}` : '' }),
-    zoom: () => {
-      focusPane(ws.id, pane.id);
-      toggleZoom();
-    },
-    close: () => closePane(ws.id, pane.id),
-  };
+  // One pane at a time on a phone: splitting and zooming don't apply.
+  const actions = phone
+    ? { close: () => closePane(ws.id, pane.id) }
+    : {
+        split: (dir: 'row' | 'col') => split(dir),
+        browser: () => split('row', { id: uid(), kind: 'browser', url: ports[0] ? `http://localhost:${ports[0]}` : '' }),
+        zoom: () => {
+          focusPane(ws.id, pane.id);
+          toggleZoom();
+        },
+        close: () => closePane(ws.id, pane.id),
+      };
   if (pane.kind === 'browser')
     return <BrowserView pane={pane} focused={focused} onFocus={onFocus} ports={ports} actions={actions} />;
   return <TerminalView pane={pane} focused={focused} visible={visible} onFocus={onFocus} actions={actions} accent={hue(ws.color)} />;

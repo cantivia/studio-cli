@@ -40,7 +40,7 @@ export function NewWorkspaceDialog() {
             exit={{ y: 8, opacity: 0 }}
             transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
             onMouseDown={(e) => e.stopPropagation()}
-            className="surface w-[720px] rounded-[26px] p-6"
+            className="surface max-h-[calc(var(--app-h,100vh)-24px)] w-[min(720px,calc(100vw-24px))] overflow-y-auto rounded-[26px] p-6"
           >
             <div className="text-[20px] font-semibold tracking-[-0.015em] text-ink">New workspace</div>
             <div className="mt-1 text-[13px] text-muted">A folder plus its terminals. You can open several workspaces on the same repo.</div>

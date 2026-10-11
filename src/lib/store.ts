@@ -25,6 +25,8 @@ type UiState = {
   paletteOpen: boolean;
   notificationsOpen: boolean;
   newWorkspaceOpen: boolean;
+  /** Phone: the sidebar drawer is open. */
+  navOpen: boolean;
 };
 
 type Actions = {
@@ -34,6 +36,8 @@ type Actions = {
   addWorkspace: (cwd: string, layout?: 'shell' | 'claude' | 'claude+shell', name?: string, color?: string) => void;
   selectWorkspace: (id: string) => void;
   closeWorkspace: (id: string) => void;
+  /** Moves a workspace to a new slot in the sidebar (⌃1–9 follow this order). */
+  moveWorkspace: (id: string, to: number) => void;
   renameWorkspace: (id: string, name: string) => void;
   recolorWorkspace: (id: string, color: string) => void;
   focusPane: (wsId: string, paneId: string) => void;
@@ -84,6 +88,7 @@ export const useStore = create<Store>()(
       paletteOpen: false,
       notificationsOpen: false,
       newWorkspaceOpen: false,
+      navOpen: false,
 
       setServer: (s) => set(s),
       setMode: (mode) => set({ mode }),
@@ -114,7 +119,7 @@ export const useStore = create<Store>()(
         };
         set((s) => ({ workspaces: [...s.workspaces, ws], activeId: ws.id, mode: 'workspaces', newWorkspaceOpen: false }));
       },
-      selectWorkspace: (id) => set({ activeId: id, mode: 'workspaces' }),
+      selectWorkspace: (id) => set({ activeId: id, mode: 'workspaces', navOpen: false }),
       closeWorkspace: (id) => {
         const ws = get().workspaces.find((w) => w.id === id);
         if (!ws) return;
@@ -126,6 +131,14 @@ export const useStore = create<Store>()(
           return { workspaces, activeId };
         });
       },
+      moveWorkspace: (id, to) =>
+        set((s) => {
+          const list = s.workspaces.filter((w) => w.id !== id);
+          const ws = s.workspaces.find((w) => w.id === id);
+          if (!ws) return {};
+          list.splice(Math.max(0, Math.min(to, list.length)), 0, ws);
+          return { workspaces: list };
+        }),
       renameWorkspace: (id, name) => set((s) => ({ workspaces: updateWs(s.workspaces, id, (w) => ({ ...w, name, customName: true })) })),
       recolorWorkspace: (id, color) => set((s) => ({ workspaces: updateWs(s.workspaces, id, (w) => ({ ...w, color })) })),
       focusPane: (wsId, paneId) => {

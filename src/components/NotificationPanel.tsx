@@ -20,7 +20,7 @@ export function NotificationPanel() {
             animate={{ x: 0, opacity: 1 }}
             exit={{ x: 40, opacity: 0 }}
             transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
-            className="liquid-glass fixed bottom-3 right-3 top-3 z-50 flex w-[380px] flex-col rounded-[24px]"
+            className="liquid-glass fixed bottom-3 right-3 top-3 z-50 flex w-[min(380px,calc(100vw-24px))] flex-col rounded-[24px]"
           >
             <div className="flex items-center gap-2 px-5 pb-3 pt-5">
               <Bell size={16} />

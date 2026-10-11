@@ -105,6 +105,27 @@ export class OfficeState {
     this.areaMappings = mappings;
   }
 
+  /** Studio: walkable tiles per Area label, so a character only wanders its own room. */
+  private areaWalkable = new Map<string, Array<{ col: number; row: number }>>();
+
+  private buildAreaWalkable(): void {
+    this.areaWalkable.clear();
+    const tiles = this.layout.areaTiles;
+    if (!tiles) return;
+    for (const t of this.walkableTiles) {
+      const label = tiles[t.row * this.layout.cols + t.col];
+      if (!label) continue;
+      let list = this.areaWalkable.get(label);
+      if (!list) this.areaWalkable.set(label, (list = []));
+      list.push(t);
+    }
+  }
+
+  private roamTiles(folderName?: string): Array<{ col: number; row: number }> {
+    const label = folderName ? this.areaMappings[folderName]?.[0] : undefined;
+    return (label && this.areaWalkable.get(label)) || this.walkableTiles;
+  }
+
   constructor(layout?: OfficeLayout) {
     this.layout = layout || createDefaultLayout();
     this.tileMap = layoutToTileMap(this.layout);
@@ -112,6 +133,7 @@ export class OfficeState {
     this.blockedTiles = getBlockedTiles(this.layout.furniture);
     this.furniture = layoutToFurnitureInstances(this.layout.furniture);
     this.walkableTiles = getWalkableTiles(this.tileMap, this.blockedTiles);
+    this.buildAreaWalkable();
     // Pets are built last because they need walkableTiles populated for spawn.
     this.rebuildPetsFromLayout(this.layout);
   }
@@ -125,6 +147,7 @@ export class OfficeState {
     this.blockedTiles = getBlockedTiles(layout.furniture);
     this.rebuildFurnitureInstances();
     this.walkableTiles = getWalkableTiles(this.tileMap, this.blockedTiles);
+    this.buildAreaWalkable();
 
     // Shift character positions when grid expands left/up
     if (shift && (shift.col !== 0 || shift.row !== 0)) {
@@ -473,10 +496,8 @@ export class OfficeState {
       // No seats — teammates spawn beside their anchor, others at a random walkable tile
       let spawn = anchorAt ? this.closestFreeWalkableTile(anchorAt.col, anchorAt.row) : null;
       if (!spawn) {
-        spawn =
-          this.walkableTiles.length > 0
-            ? this.walkableTiles[Math.floor(Math.random() * this.walkableTiles.length)]
-            : { col: 1, row: 1 };
+        const tiles = this.roamTiles(folderName);
+        spawn = tiles.length > 0 ? tiles[Math.floor(Math.random() * tiles.length)] : { col: 1, row: 1 };
       }
       ch = createCharacter(id, palette, null, null, hueShift);
       ch.x = spawn.col * TILE_SIZE + TILE_SIZE / 2;
@@ -1111,7 +1132,7 @@ export class OfficeState {
 
       // Temporarily unblock own seat so character can pathfind to it
       this.withOwnSeatUnblocked(ch, () =>
-        updateCharacter(ch, dt, this.walkableTiles, this.seats, this.tileMap, this.blockedTiles),
+        updateCharacter(ch, dt, this.roamTiles(ch.folderName), this.seats, this.tileMap, this.blockedTiles),
       );
 
       // Tick bubble timer for waiting bubbles

@@ -11,7 +11,7 @@ type Props = {
   focused: boolean;
   onFocus: () => void;
   ports: number[];
-  actions: { split: (dir: 'row' | 'col') => void; zoom: () => void; close: () => void };
+  actions: { split?: (dir: 'row' | 'col') => void; zoom?: () => void; close: () => void };
 };
 
 const normalize = (u: string) => {
@@ -77,16 +77,22 @@ export function BrowserView({ pane, focused, onFocus, ports, actions }: Props) {
             <ExternalLink size={13} />
           </IconBtn>
         )}
-        <div className="flex items-center opacity-0 transition-opacity group-hover/pane:opacity-100">
-          <IconBtn title="Split right" onClick={() => actions.split('row')}>
-            <Columns2 size={13} />
-          </IconBtn>
-          <IconBtn title="Split down" onClick={() => actions.split('col')}>
-            <Rows2 size={13} />
-          </IconBtn>
-          <IconBtn title="Zoom" onClick={actions.zoom}>
-            <Maximize2 size={13} />
-          </IconBtn>
+        <div className="flex items-center opacity-0 transition-opacity group-hover/pane:opacity-100 [@media(hover:none)]:opacity-100">
+          {actions.split && (
+            <>
+              <IconBtn title="Split right" onClick={() => actions.split!('row')}>
+                <Columns2 size={13} />
+              </IconBtn>
+              <IconBtn title="Split down" onClick={() => actions.split!('col')}>
+                <Rows2 size={13} />
+              </IconBtn>
+            </>
+          )}
+          {actions.zoom && (
+            <IconBtn title="Zoom" onClick={actions.zoom}>
+              <Maximize2 size={13} />
+            </IconBtn>
+          )}
           <IconBtn title="Close" onClick={actions.close}>
             <X size={13} />
           </IconBtn>

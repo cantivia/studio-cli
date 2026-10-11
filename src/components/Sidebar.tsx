@@ -15,17 +15,27 @@ export function Sidebar() {
   const mode = useStore((s) => s.mode);
   const unread = useStore((s) => s.notifications.filter((n) => !n.read).length);
   const set = useStore((s) => s.set);
+  const move = useStore((s) => s.moveWorkspace);
   const [settings, setSettings] = useState(false);
+  // Drag to reorder: `slot` is the gap the dragged workspace would land in (0 = above the first).
+  const [drag, setDrag] = useState<{ id: string; slot: number | null } | null>(null);
+  const drop = () => {
+    if (drag && drag.slot !== null) {
+      const from = workspaces.findIndex((w) => w.id === drag.id);
+      move(drag.id, drag.slot > from ? drag.slot - 1 : drag.slot);
+    }
+    setDrag(null);
+  };
 
   return (
-    <aside className="liquid-glass flex h-full w-[272px] flex-col border-r border-white/70">
+    <aside className="liquid-glass flex h-full w-full flex-col border-r border-white/70">
       <div className="drag titlebar-pad-top flex items-center justify-between px-5 pb-3">
         <div className="flex items-baseline gap-1.5">
           <span className="text-[20px] font-bold tracking-[-0.03em] text-ink">studio</span>
           <Mark />
         </div>
         <button
-          onClick={() => set({ newWorkspaceOpen: true })}
+          onClick={() => set({ newWorkspaceOpen: true, navOpen: false })}
           className="grid h-8 w-8 place-items-center rounded-full bg-ink text-white transition hover:bg-violet active:scale-95"
           title="New workspace (⌘⌥N)"
         >
@@ -36,7 +46,18 @@ export function Sidebar() {
       <div className="px-5 pb-2 text-[11px] font-medium uppercase tracking-[0.08em] text-faint">Workspaces</div>
       <nav className="min-h-0 flex-1 space-y-1 overflow-y-auto px-3 pb-3">
         {workspaces.map((ws, i) => (
-          <WorkspaceItem key={ws.id} ws={ws} index={i} active={mode === 'workspaces' && ws.id === activeId} />
+          <WorkspaceItem
+            key={ws.id}
+            ws={ws}
+            index={i}
+            active={mode === 'workspaces' && ws.id === activeId}
+            dragging={drag?.id === ws.id}
+            dropLine={drag && drag.id !== ws.id ? (drag.slot === i ? 'top' : drag.slot === i + 1 ? 'bottom' : null) : null}
+            onDragStart={() => setDrag({ id: ws.id, slot: null })}
+            onDragOver={(below) => drag && setDrag({ ...drag, slot: below ? i + 1 : i })}
+            onDrop={drop}
+            onDragEnd={() => setDrag(null)}
+          />
         ))}
         {!workspaces.length && (
           <button
@@ -82,7 +103,16 @@ export function Mark({ size = 30 }: { size?: number }) {
   );
 }
 
-function WorkspaceItem({ ws, index, active }: { ws: Workspace; index: number; active: boolean }) {
+type DragProps = {
+  dragging: boolean;
+  dropLine: 'top' | 'bottom' | null;
+  onDragStart: () => void;
+  onDragOver: (below: boolean) => void;
+  onDrop: () => void;
+  onDragEnd: () => void;
+};
+
+function WorkspaceItem({ ws, index, active, ...dnd }: { ws: Workspace; index: number; active: boolean } & DragProps) {
   const meta = useStore((s) => s.meta);
   const notifications = useStore((s) => s.notifications);
   const select = useStore((s) => s.selectWorkspace);
@@ -114,9 +144,30 @@ function WorkspaceItem({ ws, index, active }: { ws: Workspace; index: number; ac
       tabIndex={0}
       onClick={() => select(ws.id)}
       onKeyDown={(e) => e.key === 'Enter' && !editing && select(ws.id)}
+      draggable={!editing}
+      onDragStart={(e) => {
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('text/plain', ws.id);
+        dnd.onDragStart();
+      }}
+      onDragOver={(e) => {
+        e.preventDefault();
+        const r = e.currentTarget.getBoundingClientRect();
+        dnd.onDragOver(e.clientY > r.top + r.height / 2);
+      }}
+      onDrop={(e) => {
+        e.preventDefault();
+        dnd.onDrop();
+      }}
+      onDragEnd={dnd.onDragEnd}
       style={info.unread && !active ? { boxShadow: `0 0 0 1.5px ${color.glow}66` } : undefined}
-      className={`group relative w-full rounded-2xl px-3.5 py-2.5 text-left transition-all duration-300 ${active ? 'surface' : 'hover:bg-white/60'}`}
+      className={`group relative w-full rounded-2xl px-3.5 py-2.5 text-left transition-all duration-300 ${active ? 'surface' : 'hover:bg-white/60'} ${dnd.dragging ? 'opacity-40' : ''}`}
     >
+      {dnd.dropLine && (
+        <div
+          className={`pointer-events-none absolute left-2 right-2 h-[2px] rounded-full bg-violet ${dnd.dropLine === 'top' ? '-top-[3px]' : '-bottom-[3px]'}`}
+        />
+      )}
       {active && (
         <motion.div
           layoutId="ws-active"

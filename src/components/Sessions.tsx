@@ -62,7 +62,7 @@ export function Sessions() {
         {groups.map(([label, items]) => (
           <section key={label} className="mt-8">
             <div className="mb-3 text-[12px] font-medium uppercase tracking-[0.08em] text-faint">{label}</div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
               {items.map((s, i) => (
                 <motion.div
                   key={s.sessionId}

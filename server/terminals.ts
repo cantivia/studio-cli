@@ -118,6 +118,9 @@ export class TerminalManager extends EventEmitter {
         TERM: 'xterm-256color',
         COLORTERM: 'truecolor',
         TERM_PROGRAM: 'studio-cli',
+        // Claude Code scrolls 3 lines per wheel step in xterm.js terminals it recognises, but it can't
+        // recognise ours (xterm.js doesn't answer XTVERSION), so it falls back to a sluggish 1. A notch above 3, since 3 still felt slow.
+        CLAUDE_CODE_SCROLL_SPEED: process.env.CLAUDE_CODE_SCROLL_SPEED || '4',
         STUDIO_URL: this.baseUrl,
         STUDIO_TERMINAL_ID: id,
       } as Record<string, string>,

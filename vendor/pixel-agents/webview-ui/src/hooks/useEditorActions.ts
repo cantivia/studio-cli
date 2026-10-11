@@ -44,7 +44,7 @@ import type {
   TileType as TileTypeVal,
 } from '../office/types.js';
 import { EditTool } from '../office/types.js';
-import { TileType } from '../office/types.js';
+import { TILE_SIZE, TileType } from '../office/types.js';
 import { transport } from '../transport/index.js';
 
 interface EditorActions {
@@ -130,6 +130,15 @@ export function useEditorActions(
   // Called by useExtensionMessages on layoutLoaded to set the initial checkpoint
   const setLastSavedLayout = useCallback((layout: OfficeLayout) => {
     lastSavedLayoutRef.current = structuredClone(layout);
+    // Studio: zoom out until a big layout (the all-workspaces building) fits the view.
+    const dpr = window.devicePixelRatio || 1;
+    const fit = Math.floor(
+      Math.min(
+        (window.innerWidth * dpr) / (layout.cols * TILE_SIZE),
+        (window.innerHeight * dpr) / (layout.rows * TILE_SIZE),
+      ),
+    );
+    setZoom(Math.max(ZOOM_MIN, Math.min(defaultZoom(), fit)));
   }, []);
 
   // Clear the dirty flag after a browser layout import: the imported layout is the

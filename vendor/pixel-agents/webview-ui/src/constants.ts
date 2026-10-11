@@ -11,12 +11,13 @@ export const MAX_ROWS = 64;
 export const WALK_SPEED_PX_PER_SEC = 48;
 export const WALK_FRAME_DURATION_SEC = 0.15;
 export const TYPE_FRAME_DURATION_SEC = 0.3;
-export const WANDER_PAUSE_MIN_SEC = 2.0;
-export const WANDER_PAUSE_MAX_SEC = 20.0;
-export const WANDER_MOVES_BEFORE_REST_MIN = 3;
-export const WANDER_MOVES_BEFORE_REST_MAX = 6;
-export const SEAT_REST_MIN_SEC = 120.0;
-export const SEAT_REST_MAX_SEC = 240.0;
+// Studio: idle characters roam a lot more than upstream (2-20s pauses, 2-4 min seat rests).
+export const WANDER_PAUSE_MIN_SEC = 0.8;
+export const WANDER_PAUSE_MAX_SEC = 5.0;
+export const WANDER_MOVES_BEFORE_REST_MIN = 5;
+export const WANDER_MOVES_BEFORE_REST_MAX = 12;
+export const SEAT_REST_MIN_SEC = 8.0;
+export const SEAT_REST_MAX_SEC = 25.0;
 
 // ── Matrix Effect ────────────────────────────────────────────
 export const MATRIX_EFFECT_DURATION_SEC = 0.3;
@@ -130,7 +131,7 @@ export const AREA_DEFAULT_COLORS: readonly string[] = [
   '#ffa502',
 ] as const;
 /** Translucent overlay alpha for area tile fills. */
-export const AREA_OVERLAY_ALPHA = 0.25;
+export const AREA_OVERLAY_ALPHA = 0.12; // Studio: floors are already tinted per workspace
 /** Alpha multiplier applied to the actively-selected area's overlay. */
 export const AREA_ACTIVE_ALPHA_MULTIPLIER = 1.6;
 /** Base font size (pixel-pre-zoom) for area centroid labels. */

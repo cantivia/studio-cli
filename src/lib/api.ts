@@ -4,8 +4,13 @@ async function req<T>(method: string, url: string, body?: unknown): Promise<T> {
     headers: body === undefined ? undefined : { 'content-type': 'application/json' },
     body: body === undefined ? undefined : JSON.stringify(body),
   });
-  const data = await res.json();
-  if (!res.ok) throw new Error(data?.error || res.statusText);
+  const text = await res.text();
+  let data: any = null;
+  try {
+    data = JSON.parse(text);
+  } catch {}
+  // Non-JSON (a proxy's or Cloudflare's error page): show the status instead of a JSON parse error.
+  if (!res.ok || data === null) throw new Error(data?.error || `${res.status} ${res.statusText || text.slice(0, 80)}`.trim());
   return data as T;
 }
 

@@ -1,6 +1,9 @@
 import { createRoot } from 'react-dom/client';
 import './styles.css';
 import App from './App';
+import { fitToVisibleViewport } from './lib/device';
+
+fitToVisibleViewport();
 
 createRoot(document.getElementById('root')!).render(<App />);
 

@@ -253,7 +253,7 @@ export function renderAreaLabels(
   for (const a of areas) colorMap.set(a.label, a.color);
 
   // Centroid accumulator: label → { sumX, sumY, count }.
-  const centroids = new Map<string, { sumX: number; sumY: number; count: number }>();
+  const centroids = new Map<string, { sumX: number; sumY: number; count: number; minY: number }>();
   for (let r = 0; r < rows; r++) {
     for (let c = 0; c < cols; c++) {
       const label = areaTiles[r * cols + c];
@@ -263,8 +263,9 @@ export function renderAreaLabels(
         acc.sumX += c;
         acc.sumY += r;
         acc.count += 1;
+        acc.minY = Math.min(acc.minY, r);
       } else {
-        centroids.set(label, { sumX: c, sumY: r, count: 1 });
+        centroids.set(label, { sumX: c, sumY: r, count: 1, minY: r });
       }
     }
   }
@@ -280,7 +281,8 @@ export function renderAreaLabels(
 
   for (const [label, acc] of centroids) {
     const cx = offsetX + (acc.sumX / acc.count + 0.5) * s;
-    const cy = offsetY + (acc.sumY / acc.count + 0.5) * s;
+    // Studio: label sits on the room's back wall, not over the desks in the middle.
+    const cy = offsetY + (acc.minY - 0.5) * s;
 
     // Pixel-art drop shadow (1px right + down, no blur).
     ctx.globalAlpha = AREA_LABEL_SHADOW_ALPHA;

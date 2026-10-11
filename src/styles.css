@@ -39,13 +39,18 @@
 html,
 body,
 #root {
-  height: 100%;
+  height: var(--app-h, 100%);
   margin: 0;
   background: var(--canvas);
   color: var(--ink);
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
   overflow: hidden;
+}
+
+/* Notch and home bar on iPhone (viewport-fit=cover), mainly when added to the home screen. */
+.safe-area {
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
 }
 
 ::selection {
