@@ -1,5 +1,5 @@
 import { useEffect, useReducer, useRef, useState, type ReactNode } from 'react';
-import { Check, Columns2, GitBranch, Globe, Maximize2, Radio, RotateCcw, Rows2, Sparkles, SquareTerminal, X } from 'lucide-react';
+import { Check, Columns2, GitBranch, Globe, Maximize2, Pencil, Radio, RotateCcw, Rows2, Sparkles, SquareTerminal, X } from 'lucide-react';
 import { useStore } from '../lib/store';
 import { api, basename, tildify } from '../lib/api';
 import { alpha, hue, type Hue } from '../lib/colors';
@@ -40,6 +40,7 @@ export function TerminalView({ pane, focused, visible, onFocus, actions, headerE
   const updatePane = useStore((s) => s.updatePane);
   const ref = useRef<HTMLDivElement>(null);
   const [error, setError] = useState<string | null>(null);
+  const [renaming, setRenaming] = useState(false);
   const [, rerender] = useReducer((x: number) => x + 1, 0);
   useEffect(() => subscribe(rerender), []);
   const exited = !!pane.termId && !alive && isClosed(pane.termId);
@@ -100,7 +101,11 @@ export function TerminalView({ pane, focused, visible, onFocus, actions, headerE
   };
 
   const claude = meta?.claude;
-  const label = claude ? 'Claude' : pane.command ? basename(pane.command.split(' ')[0]) : 'Terminal';
+  const label = pane.name || (claude ? 'Claude' : pane.command ? basename(pane.command.split(' ')[0]) : 'Terminal');
+  const rename = (name: string) => {
+    updatePane(pane.id, (p) => ({ ...p, name: name.trim() || undefined }));
+    setRenaming(false);
+  };
   const Icon = claude || pane.command?.startsWith('claude') ? Sparkles : SquareTerminal;
   const cwd = meta?.cwd || pane.cwd;
   const muted = ink ? 'text-[#8e8e93]' : 'text-[#8a8780]';
@@ -122,9 +127,33 @@ export function TerminalView({ pane, focused, visible, onFocus, actions, headerE
     >
       {!bare && (
         <div className={`flex h-10 shrink-0 items-center gap-2 pl-3 pr-2 text-[12px] ${muted}`}>
-          <span className="flex items-center gap-1.5 rounded-full bg-[var(--acc-soft)] py-[3px] pl-2 pr-2.5 font-semibold text-[var(--acc-ui)]">
+          <span
+            onDoubleClick={() => setRenaming(true)}
+            title="Double-click to rename"
+            className="flex min-w-0 shrink-0 items-center gap-1.5 rounded-full bg-[var(--acc-soft)] py-[3px] pl-2 pr-2.5 font-semibold text-[var(--acc-ui)]"
+          >
             {claude?.status === 'busy' ? <span className="h-1.5 w-1.5 rounded-full dot-busy" style={{ background: 'var(--acc)' }} /> : <Icon size={12} strokeWidth={2.2} />}
-            {label}
+            {renaming ? (
+              <input
+                autoFocus
+                defaultValue={pane.name || ''}
+                placeholder={label}
+                onFocus={(e) => e.target.select()}
+                onMouseDown={(e) => e.stopPropagation()}
+                onBlur={(e) => rename(e.target.value)}
+                onKeyDown={(e) => {
+                  e.stopPropagation();
+                  if (e.key === 'Enter') e.currentTarget.blur();
+                  if (e.key === 'Escape') {
+                    e.currentTarget.value = pane.name || '';
+                    e.currentTarget.blur();
+                  }
+                }}
+                className="w-[130px] bg-transparent font-semibold text-[var(--acc-ui)] outline-none placeholder:text-[var(--acc-ui)] placeholder:opacity-50"
+              />
+            ) : (
+              <span className="max-w-[180px] truncate">{label}</span>
+            )}
           </span>
           {claude && <ClaudeState busy={claude.status === 'busy'} done={doneUnread} ink={ink} />}
           {!claude && doneUnread && <ClaudeState busy={false} done ink={ink} />}
@@ -150,6 +179,9 @@ export function TerminalView({ pane, focused, visible, onFocus, actions, headerE
           ))}
           {headerExtra}
           <div className="ml-auto flex items-center gap-0.5 opacity-0 transition-opacity group-hover/pane:opacity-100">
+            <IconBtn ink={ink} title="Rename terminal" onClick={() => setRenaming(true)}>
+              <Pencil size={12} />
+            </IconBtn>
             {actions?.split && (
               <>
                 <IconBtn ink={ink} title="Split right (⌘D)" onClick={() => actions.split!('row')}>

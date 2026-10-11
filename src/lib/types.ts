@@ -32,6 +32,8 @@ export type TerminalPane = {
   termId: string | null;
   cwd: string;
   command: string | null;
+  /** Set by the user; replaces "Terminal" / "Claude" in the pane header. */
+  name?: string;
   /** Last Claude conversation seen in this pane, so a respawn can resume it. */
   sessionId?: string;
 };
