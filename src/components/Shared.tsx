@@ -21,6 +21,7 @@ export function Shared() {
   const updatePane = useStore((s) => s.updatePane);
   const home = useStore((s) => s.home);
   const [links, setLinks] = useState<Share[]>([]);
+  const [remote, setRemote] = useState(true);
   const [paste, setPaste] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState<string | null>(null);
@@ -30,7 +31,14 @@ export function Shared() {
   // Origins of links you opened; only they may hand you a conversation.
   const opened = useRef(new Set<string>());
 
-  const load = useCallback(() => api.get<Share[]>('/api/shares').then(setLinks).catch(() => {}), []);
+  const load = useCallback(
+    () =>
+      api
+        .get<{ remote: boolean; links: Share[] }>('/api/shares')
+        .then((r) => (setLinks(r.links), setRemote(r.remote)))
+        .catch(() => {}),
+    [],
+  );
   useEffect(() => {
     if (visible) load();
   }, [visible, load]);
@@ -103,6 +111,12 @@ export function Shared() {
           Your Studio, terminals and Claude stay yours. Share a conversation or a live workspace as a link; the other person opens it from their own Studio.
         </p>
         {error && <div className="mt-4 rounded-xl bg-[#e5383b]/10 px-4 py-2.5 text-[13px] font-medium text-[#b42318]">{error}</div>}
+        {!remote && (
+          <div className="mt-4 rounded-xl bg-[#f59e0b]/10 px-4 py-3 text-[13px] leading-relaxed text-[#92400e]">
+            <b>Links only work on this computer for now.</b> To let other people open them, run <code className="rounded bg-white/70 px-1.5 py-0.5 font-mono text-[12px]">npm run setup</code> in the
+            Studio folder (takes a couple of minutes), which gives you your own secure address.
+          </div>
+        )}
 
         <section className="mt-8">
           <div className="mb-3 text-[12px] font-medium uppercase tracking-[0.08em] text-faint">Open a link someone sent you</div>

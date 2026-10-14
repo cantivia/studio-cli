@@ -1,55 +1,74 @@
-# One Studio per person
+# Your own Studio, reachable from your phone
 
-Every person runs **their own Studio on their own computer**. Their terminals, Claude login and history,
-workspaces and remote connection are theirs alone. There is no shared server and no shared account.
+Everyone runs **their own Studio on their own computer**: their own terminals, Claude login and history, workspaces,
+and remote address. Nothing is shared between people except links they choose to make.
 
-- Ashkan's phone/iPad reaches Ashkan's Mac. Feargal's reach Feargal's computer.
-- Each person has their own address (e.g. `studio-cli.cantivia.com` for Ashkan, `studio-feargal.cantivia.com` for Feargal),
-  their own Cloudflare Tunnel, and an Access rule that lists **only them**.
-- The only thing that crosses between people is a **share link** (below), made on purpose.
+- Your phone/iPad reaches *your* computer. A colleague's reach *theirs*.
+- Each person has their own address (e.g. `studio-ashkan.cantivia.com`) that only they can open.
+- To share, you make a link (see the bottom). They open it from their own Studio.
 
-## Setting up your own Studio (about 15 minutes, once)
+## Set up (about 3 minutes)
 
-1. **Run it.** `git clone` the repo, `npm install`, `npm run dev` (or `npm run build && npm start`). Open http://127.0.0.1:4610.
-2. **Tunnel** (so your phone/iPad can reach your computer). In Cloudflare Zero Trust → Networks → Tunnels, create a tunnel
-   named `studio-<you>`. Add a public hostname, e.g. `studio-<you>.cantivia.com`, pointing at `http://127.0.0.1:4610`.
-   Save the tunnel token to `~/.studio-cli/tunnel-token`, `brew install cloudflared`, and keep the tunnel running with a
-   LaunchAgent (`~/Library/LaunchAgents/com.studio-cli.tunnel.plist`: run `cloudflared tunnel --no-autoupdate run --token-file <path>`
-   with `RunAtLoad` and `KeepAlive` true).
-3. **Access app for you.** Zero Trust → Access → Applications → Add a self-hosted app for that hostname. One policy:
-   *Allow → Emails → your own email* (just you, not the whole domain). Note its **Application Audience (AUD) tag**.
-4. **Access app for share links.** Add a second self-hosted app on the **same hostname with path `/share/*`**. One policy:
-   *Allow → Emails ending in → @cantivia.com*. Note its AUD tag. (Cloudflare uses the most specific app, so only share
-   links are open to colleagues; everything else stays yours alone.)
-5. **`~/.studio-cli/remote.json`:**
-   ```json
-   {
-     "host": "studio-<you>.cantivia.com",
-     "team": "<your-team>.cloudflareaccess.com",
-     "aud": "<AUD of the app from step 3>",
-     "allow": ["<you>@cantivia.com"],
-     "shareAud": "<AUD of the app from step 4>",
-     "shareAllow": ["@cantivia.com"]
-   }
-   ```
-   Restart Studio (Vite reads the hostname at startup). Without this file every request from outside your computer is refused.
-6. **Keep the computer reachable.** The computer must be on and awake. With `remote.json` present, Studio runs
-   `caffeinate` so it doesn't idle-sleep while Studio is running. Closing the lid on battery still sleeps a Mac.
+```bash
+git clone https://github.com/cantivia/studio-cli.git
+cd studio-cli
+npm install
+npm run setup
+```
 
-Studio checks the login itself as well as Cloudflare (`server/access.ts`): a request from outside must carry a valid token
-for the right app, or it gets a 403. A login from the share-link app is accepted only on `/share/*` paths, never on the API or terminals.
+`npm run setup` asks two things (your work email and a Cloudflare token) and does the rest:
 
-## Locking down an existing Studio
+1. creates a private tunnel from the internet to this computer, and your own address (`studio-<you>.<company domain>`),
+2. locks that address to **only your email** (you sign in with an emailed code),
+3. adds a second rule so colleagues can open the **share links** you make, and nothing else,
+4. saves the settings and keeps Studio and the tunnel running in the background, starting at login.
 
-If your `remote.json` still says `"allow": ["@cantivia.com"]`, anyone at the company can reach your terminals. Change it to
-just your email, and make the same change on the Access policy in Cloudflare. Edits to `remote.json` apply immediately.
+Then open the address it prints on your phone, sign in with your email, and you're in your own Studio.
+
+**The Cloudflare token** (used once, never saved): https://dash.cloudflare.com/profile/api-tokens → Create Token →
+Create Custom Token, with *Account · Cloudflare Tunnel · Edit*, *Account · Access: Apps and Policies · Edit*,
+*Account · Access: Organizations, Identity Providers, and Groups · Read*, *Account · Account Settings · Read*,
+*Zone · DNS · Edit*. The setup prints this list too. Delete the token afterwards if you like.
+
+Good to know:
+- The setup is safe to run again. It reuses what exists instead of making copies. `npm run setup -- --dry-run` shows what it
+  would do without changing anything. `--no-service` skips the background services.
+- Your computer has to be on and awake. Studio keeps it from idle-sleeping while it runs (a Mac with the lid shut on battery still sleeps).
+- Studio checks the login itself as well as Cloudflare (`server/access.ts`), so a request from outside without a valid
+  token for the right rule gets a 403. The share-link login works only on `/share/…` pages, never on terminals or the API.
+
+## Updating a Studio that's already set up (e.g. on the Mac you use every day)
+
+1. Update the code (`git merge` the new branch, or `git pull`).
+2. Run `npm run setup -- --email you@company.com`. It sees your existing setup and only **locks it to just you** and **adds the
+   share-link rule**. Your tunnel, address and token are left alone, and the old settings are kept as `remote.json.bak`.
+3. Restart `npm run dev` (stop it, run it again). Your terminals and Claude sessions keep running: they live in a separate
+   host process and reconnect.
+
+## Without the script (manual)
+
+Do the same four things in the Cloudflare Zero Trust dashboard: a tunnel to `http://127.0.0.1:4600` (`npm start`) or
+`http://127.0.0.1:4610` (`npm run dev`) with a public hostname; an Access app for that hostname allowing only your email; a
+second Access app on the same hostname with path `/share/*` allowing your company's email domain. Then write
+`~/.studio-cli/remote.json`:
+
+```json
+{
+  "host": "studio-you.company.com",
+  "team": "your-team.cloudflareaccess.com",
+  "aud": "<AUD tag of the first Access app>",
+  "allow": ["you@company.com"],
+  "shareAud": "<AUD tag of the share-link app>",
+  "shareAllow": ["@company.com"]
+}
+```
 
 ## Share links
 
 - **Share link on a conversation** (Sessions tab): the link opens a read-only page of the conversation. "Open in my Studio"
-  hands it to the visitor's own Studio, which copies it into *their* Claude history and continues it there, on their own computer.
+  hands it to the visitor's own Studio, which copies it into *their* Claude history so they continue it on their own computer.
 - **Share link on a workspace** (link icon in the sidebar): the link opens a page that shows your live terminals. Guests only
   watch, unless you tick "Guests can type" on the link. Typing runs commands on your computer, so only allow it for people you trust.
-- A link names one thing, expires after 7 days, and can be turned off at any time in the Shared tab (that also drops anyone
-  watching). Anyone opening it must also pass the share-link login. The link is a secret: don't post it publicly.
-- Links work only while the sharer's computer is on and Studio is running.
+- A link names one thing, expires after 7 days, and can be turned off any time in the Shared tab (that also drops anyone
+  watching). Opening one needs the secret link **and** a sign-in at your company. Don't post links publicly.
+- Links work only while the sharer's computer is on and their Studio is running.

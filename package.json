@@ -10,7 +10,8 @@
     "build": "tsc --noEmit && vite build",
     "start": "NODE_ENV=production tsx server/index.ts",
     "postinstall": "chmod +x node_modules/node-pty/prebuilds/darwin-*/spawn-helper 2>/dev/null || true",
-    "build:office": "cd vendor/pixel-agents/webview-ui && npx vite build"
+    "build:office": "cd vendor/pixel-agents/webview-ui && npx vite build",
+    "setup": "node scripts/setup.mjs"
   },
   "dependencies": {
     "@xterm/addon-fit": "^0.11.0",

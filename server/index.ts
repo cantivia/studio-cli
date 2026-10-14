@@ -262,7 +262,8 @@ const withUrl = (req: express.Request, s: Awaited<ReturnType<typeof createShare>
 
 app.get(
   '/api/shares',
-  wrap(async (req, res) => res.json((await listShares()).map((s) => withUrl(req, s)))),
+  // `remote` says whether links can work for other people: without remote access they only open on this computer.
+  wrap(async (req, res) => res.json({ remote: !!remoteConfig()?.shareAud, links: (await listShares()).map((s) => withUrl(req, s)) })),
 );
 app.post(
   '/api/shares',

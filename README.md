@@ -15,7 +15,7 @@ With the server running, open http://127.0.0.1:4610 in Chrome and click the inst
 
 ## Sharing
 
-Everyone runs their own Studio on their own computer. To share, make a link: **Share link** on a conversation in Sessions, or the link icon on a workspace in the sidebar. The other person opens it from the Shared tab of their own Studio. Setup per person (own tunnel, own login) is in [docs/per-person-setup.md](docs/per-person-setup.md).
+Everyone runs their own Studio on their own computer. **`npm run setup`** gives you your own secure address for your phone or iPad in a couple of minutes. To share, make a link: **Share link** on a conversation in Sessions, or the link icon on a workspace in the sidebar. The other person opens it from the Shared tab of their own Studio. Details, and how to update a Studio that's already running, are in [docs/per-person-setup.md](docs/per-person-setup.md).
 
 ## Terminals
 
