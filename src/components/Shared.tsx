@@ -120,9 +120,9 @@ export function Shared() {
               <>
                 To let other people open them,{' '}
                 <button onClick={() => set({ remoteOpen: true })} className="font-semibold underline underline-offset-2">
-                  connect your phone &amp; remote access
-                </button>{' '}
-                with the invite code you were sent.
+                  turn on phone &amp; remote access
+                </button>
+                . It takes one click.
               </>
             ) : (
               <>

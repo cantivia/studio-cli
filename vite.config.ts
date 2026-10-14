@@ -37,6 +37,7 @@ export default defineConfig({
       '/api': { target: `http://127.0.0.1:${API_PORT}`, changeOrigin: false },
       '/ws': { target: `ws://127.0.0.1:${API_PORT}`, ws: true },
       // Share links (see server/shares.ts) are served by the API server, including their terminal sockets.
+      '/pair': { target: `http://127.0.0.1:${API_PORT}`, changeOrigin: false },
       '/share': { target: `http://127.0.0.1:${API_PORT}`, changeOrigin: false, ws: true },
     },
   },

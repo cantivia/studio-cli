@@ -13,7 +13,10 @@ import { findTranscript, importTranscript, listSessions, listSlashCommands, read
 import { customCommands, listDirs, loadWorkflows, loadWorkspaces, saveWorkflows, saveWorkspaces } from './store.ts';
 import { installShellIntegration } from './shell.ts';
 import { offices, toolStatus, type AgentState } from './offices.ts';
-import { checkAccess, isAllowedOrigin, remoteConfig } from './access.ts';
+import { checkAccess, DEVICE_COOKIE, isAllowedOrigin, remoteConfig } from './access.ts';
+import { claimCode, listDevices, newPairingCode, removeAllDevices, removeDevice } from './devices.ts';
+import { enableRemote, releaseRemote } from './provision.ts';
+import { pairPage } from './pair-page.ts';
 import { createShare, getShare, listShares, revokeShare, updateShare } from './shares.ts';
 import { guestPage } from './share-page.ts';
 import { decodeInvite } from './invite.ts';
@@ -256,18 +259,47 @@ app.get(
   }),
 );
 
+// Is Claude Code installed on this computer? The new-workspace dialog uses this to say how to get it.
+let claudeFound: { at: number; found: boolean } | null = null;
+app.get(
+  '/api/doctor',
+  wrap(async (_req, res) => {
+    if (!claudeFound || Date.now() - claudeFound.at > 30_000) {
+      const known = ['.local/bin/claude', '.claude/local/claude', '.npm-global/bin/claude', '.bun/bin/claude'].map((p) => path.join(os.homedir(), p));
+      let found = [...known, '/opt/homebrew/bin/claude', '/usr/local/bin/claude'].some((p) => fs.existsSync(p));
+      if (!found) {
+        // A login shell sees PATH additions from the user's profile, like a normal terminal does.
+        found = await new Promise<boolean>((resolve) => {
+          const c = spawn(process.env.SHELL || '/bin/zsh', ['-l', '-i', '-c', 'command -v claude'], { stdio: ['ignore', 'pipe', 'ignore'] });
+          let out = '';
+          c.stdout.on('data', (d) => (out += d));
+          c.on('close', () => resolve(out.split('\n').some((l) => l.trim().startsWith('/'))));
+          setTimeout(() => (c.kill(), resolve(false)), 6000);
+        });
+      }
+      claudeFound = { at: Date.now(), found };
+    }
+    res.json({ claude: claudeFound.found });
+  }),
+);
+
 // ── Share links ─────────────────────────────────────────────────────────────
 // Owner side (needs your login): make, list, change and revoke links.
 const linkBase = (req: express.Request) => {
   const cfg = remoteConfig();
   return cfg ? `https://${cfg.host}` : `${req.protocol}://${req.headers.host}`;
 };
+// Links can reach other people only when this Studio has a public address people can be let into.
+const shareable = () => {
+  const cfg = remoteConfig();
+  return !!cfg && (cfg.mode === 'pairing' || !!cfg.shareAud);
+};
 const withUrl = (req: express.Request, s: Awaited<ReturnType<typeof createShare>>) => ({ ...s, url: `${linkBase(req)}/share/${s.token}` });
 
 app.get(
   '/api/shares',
   // `remote` says whether links can work for other people: without remote access they only open on this computer.
-  wrap(async (req, res) => res.json({ remote: !!remoteConfig()?.shareAud, managed: managed(), links: (await listShares()).map((s) => withUrl(req, s)) })),
+  wrap(async (req, res) => res.json({ remote: shareable(), managed: managed(), links: (await listShares()).map((s) => withUrl(req, s)) })),
 );
 app.post(
   '/api/shares',
@@ -319,34 +351,72 @@ app.post(
 
 // Remote access settings (Mac app). Changing them is only allowed from this computer, never through the tunnel.
 const onThisComputer = (req: express.Request) => !req.headers['cf-ray'] && !req.headers['cf-connecting-ip'];
-const remoteInfo = () => {
+const remoteInfo = async () => {
   const cfg = remoteConfig();
-  return { ...tunnelStatus(), configured: !!cfg, host: cfg?.host || null, allow: cfg?.allow || [] };
+  return { ...tunnelStatus(), configured: !!cfg, mode: cfg?.mode || (cfg ? 'access' : null), host: cfg?.host || null, allow: cfg?.allow || [], devices: (await listDevices()).length };
 };
-app.get('/api/remote', (_req, res) => res.json(remoteInfo()));
+app.get(
+  '/api/remote',
+  wrap(async (_req, res) => res.json(await remoteInfo())),
+);
+// One press of "Turn on": get an address from the connection service, save it, start the tunnel. Phones then pair (below).
+app.post(
+  '/api/remote/enable',
+  wrap(async (req, res) => {
+    if (!managed()) return res.status(400).json({ error: 'This Studio doesn’t manage its own tunnel.' });
+    if (!onThisComputer(req)) return res.status(403).json({ error: 'Do this on the computer itself.' });
+    const { host, tunnelToken } = await enableRemote();
+    writeRemote({ host, mode: 'pairing' }, tunnelToken);
+    startTunnel();
+    res.json(await remoteInfo());
+  }),
+);
+// "Add a phone": a short single-use code, made only on this computer.
+app.post('/api/remote/pair', (req, res) => {
+  const cfg = remoteConfig();
+  if (!onThisComputer(req) || cfg?.mode !== 'pairing') return res.status(403).json({ error: 'Not allowed' });
+  const { code, expiresAt } = newPairingCode();
+  res.json({ code, expiresAt, url: `https://${cfg.host}/pair#${code.replace('-', '')}` });
+});
+app.get(
+  '/api/remote/devices',
+  wrap(async (req, res) => (onThisComputer(req) ? res.json(await listDevices()) : res.status(403).json({ error: 'Not allowed' }))),
+);
+app.delete(
+  '/api/remote/devices/:id',
+  wrap(async (req, res) => (onThisComputer(req) ? res.json({ ok: await removeDevice(String(req.params.id)) }) : res.status(403).json({ error: 'Not allowed' }))),
+);
 app.post(
   '/api/remote/join',
   wrap(async (req, res) => {
     if (!managed()) return res.status(400).json({ error: 'This Studio doesn’t manage its own tunnel. Use `npm run setup` instead.' });
     if (!onThisComputer(req)) return res.status(403).json({ error: 'Do this on the computer itself.' });
     const inv = decodeInvite(String(req.body?.code || ''));
-    const file = path.join(DATA_DIR, 'remote.json');
-    if (fs.existsSync(file)) fs.copyFileSync(file, `${file}.bak`);
-    fs.writeFileSync(
-      file,
-      JSON.stringify({ host: inv.host, team: inv.team, aud: inv.aud, allow: inv.allow, shareAud: inv.shareAud, shareAllow: inv.shareAllow }, null, 2) + '\n',
-    );
-    fs.writeFileSync(path.join(DATA_DIR, 'tunnel-token'), inv.tunnelToken, { mode: 0o600 });
+    writeRemote({ mode: 'access', host: inv.host, team: inv.team, aud: inv.aud, allow: inv.allow, shareAud: inv.shareAud, shareAllow: inv.shareAllow }, inv.tunnelToken);
     startTunnel();
-    res.json({ ...remoteInfo(), email: inv.email });
+    res.json({ ...(await remoteInfo()), email: inv.email });
   }),
 );
-app.delete('/api/remote', (req, res) => {
-  if (!managed() || !onThisComputer(req)) return res.status(403).json({ error: 'Not allowed' });
-  stopTunnel();
-  for (const f of ['remote.json', 'tunnel-token']) fs.rmSync(path.join(DATA_DIR, f), { force: true });
-  res.json(remoteInfo());
-});
+app.delete(
+  '/api/remote',
+  wrap(async (req, res) => {
+    if (!managed() || !onThisComputer(req)) return res.status(403).json({ error: 'Not allowed' });
+    const was = remoteConfig();
+    stopTunnel();
+    // Pairing-mode addresses are handed back to the connection service and every paired phone is signed out.
+    if (was?.mode === 'pairing') await releaseRemote();
+    await removeAllDevices();
+    for (const f of ['remote.json', 'tunnel-token']) fs.rmSync(path.join(DATA_DIR, f), { force: true });
+    res.json(await remoteInfo());
+  }),
+);
+
+function writeRemote(cfg: Record<string, unknown>, tunnelToken: string) {
+  const file = path.join(DATA_DIR, 'remote.json');
+  if (fs.existsSync(file)) fs.copyFileSync(file, `${file}.bak`);
+  fs.writeFileSync(file, JSON.stringify(cfg, null, 2) + '\n');
+  fs.writeFileSync(path.join(DATA_DIR, 'tunnel-token'), tunnelToken, { mode: 0o600 });
+}
 
 // Guest side (a link's visitor): a standalone page, its data, and its terminals. Nothing else is reachable.
 const guestHeaders = (res: express.Response) => {
@@ -357,6 +427,22 @@ const guestHeaders = (res: express.Response) => {
     'Content-Security-Policy': "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; connect-src 'self' ws: wss:; img-src data:",
   });
 };
+// The page a phone uses to pair, and the endpoint that turns a code into a device cookie.
+app.get('/pair', (_req, res) => {
+  guestHeaders(res);
+  res.type('html').send(pairPage());
+});
+app.post(
+  '/pair/claim',
+  wrap(async (req, res) => {
+    const viaCloudflare = !!(req.headers['cf-ray'] || req.headers['cf-connecting-ip']);
+    const ip = String(req.headers['cf-connecting-ip'] || req.socket.remoteAddress || '');
+    const r = await claimCode(String(req.body?.code || ''), ip, String(req.headers['user-agent'] || ''));
+    if (!r.ok) return res.status(r.reason === 'slow-down' ? 429 : 400).json({ error: r.reason });
+    res.cookie(DEVICE_COOKIE, r.token, { httpOnly: true, secure: viaCloudflare, sameSite: 'lax', maxAge: 365 * 86_400_000, path: '/' });
+    res.json({ ok: true });
+  }),
+);
 const XTERM = path.join(ROOT, 'node_modules/@xterm/xterm');
 app.get('/share/_/xterm.js', (_req, res) => res.sendFile(path.join(XTERM, 'lib/xterm.js')));
 app.get('/share/_/xterm.css', (_req, res) => res.sendFile(path.join(XTERM, 'css/xterm.css')));
@@ -536,6 +622,8 @@ terms
     server.listen(PORT, HOST, () => {
       console.log(`[studio] server on ${BASE_URL}`);
       startTunnel();
+      // Tell the connection service this install is still in use, so its address isn't cleaned up as abandoned.
+      if (managed() && remoteConfig()?.mode === 'pairing') enableRemote().catch(() => {});
     }),
   )
   .catch((e) => {

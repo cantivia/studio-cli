@@ -1,15 +1,10 @@
 # Install Studio CLI on your Mac
 
-Your own terminals, your own Claude, on your own computer. No code, no Terminal commands.
+Your own terminals, your own Claude, on your own computer. No code, no accounts, no Terminal commands.
 
 ## 1. Download
 
-Get the right file (ask whoever sent you this where to find it):
-
-- **Apple chip** (any Mac from late 2020 on): `Studio CLI-…-arm64.dmg`
-- **Intel Mac**: `Studio CLI-…-x64.dmg`
-
-Not sure? Apple menu → **About This Mac**. If it says *Chip: Apple M…* it's the Apple one; if it says *Processor: Intel*, it's the Intel one.
+Get **Studio CLI** from the download page (https://studio-cli.cantivia.com once it's live). It's one file that works on every Mac (Apple chip or Intel), macOS 12 or later.
 
 ## 2. Install
 
@@ -27,26 +22,26 @@ Until the app is signed with a paid Apple developer certificate, macOS asks you 
 
 Studio asks whether to open at login. Say yes if you want your phone to always be able to reach this computer.
 
-## 4. Claude
+## 4. Claude (optional)
 
-Studio runs *your own* Claude Code. If you don't have it yet, install it from https://claude.com/claude-code and sign in once in any Studio terminal by running `claude`. Your Claude login and history stay on your computer.
+Terminals work straight away. For Claude panes, Studio runs *your own* Claude Code. If it isn't installed, Studio tells you when you create a Claude workspace and shows the one-line install; run `claude` once in any Studio terminal to sign in. Your Claude login and history stay on your computer.
 
 ## 5. Use it from your phone or iPad
 
-You'll be sent a long **invite code** that starts with `studio-invite:`. It's like a password, so keep it private.
+1. In Studio, click the settings icon (bottom left) → **Phone & remote access** → **Turn on phone access**. Your computer gets its own private address, like `studio-brave-otter-4821.cantivia.com`.
+2. Press **Add a phone**. A QR code and a short code appear.
+3. On your phone, scan the QR code with the camera (or open the address, then `/pair`, and type the code). Done: that phone is paired.
 
-1. In Studio, click the settings icon (bottom left) → **Phone & remote access**.
-2. Paste the code and press **Connect**.
-3. Open the address it shows on your phone or iPad and sign in with your work email (you'll get an emailed code).
+Each phone is paired once. Codes work one time and expire after five minutes. You can see your paired devices in the same dialog and sign any of them out, or **Turn off** to switch phone access off completely.
 
-Only you can open that address. Your computer has to be on and awake. Studio keeps it from idle-sleeping while it's connected. It can't stay reachable with the lid closed on battery.
+Your computer has to be on and awake. Studio keeps it from idle-sleeping while phone access is on. It can't stay reachable with the lid closed on battery.
 
 ## Sharing with a teammate
 
 - **Sessions tab → Share link** on a conversation, or the **link icon** on a workspace in the sidebar. The link is copied.
 - Send it to a teammate. They paste it in their Studio's **Shared** tab → **Open**.
-- Conversations are continued in *their* Claude on *their* computer. Workspaces are watched live (view-only unless you allow typing). Turn a link off any time in the Shared tab.
+- Conversations are continued in *their* Claude on *their* computer. Workspaces are watched live (view-only unless you allow typing). Links need phone access to be on, expire after 7 days, and can be turned off in the Shared tab.
 
 ## Updating, and moving
 
-Download the new file and drag the app over the old one in Applications. Your workspaces and Claude history live in `~/.studio-cli` and `~/.claude` and are kept. To uninstall, drag **Studio CLI** to the Trash.
+Download the new version and drag it over the old one in Applications. Your workspaces and Claude history live in `~/.studio-cli` and `~/.claude` and are kept. To uninstall, drag **Studio CLI** to the Trash.

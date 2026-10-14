@@ -7,12 +7,11 @@ and remote address. Nothing is shared between people except links they choose to
 - Each person has their own address (e.g. `studio-ashkan.cantivia.com`) that only they can open.
 - To share, you make a link (see the bottom). They open it from their own Studio.
 
-## Three ways to get your own Studio
+## Ways to get your own Studio
 
-**1. The Mac app (for teammates, easiest).** They download the DMG, drag it to Applications, open it, and paste an invite code.
-Nothing else: no repo, no Cloudflare account. See [INSTALL.md](INSTALL.md). You make their invite (below).
+**1. The Mac app (for everyone, easiest).** Download the DMG, drag it to Applications, open it. For phone access, press **Turn on phone access** in Settings, then pair each phone with a one-time code or QR. No repo, no Cloudflare account, no email or company login: anyone can use it. See [INSTALL.md](INSTALL.md). Behind the scenes a small connection service ([provisioner/](../provisioner/README.md)) gives each app its own address; going public is covered in [LAUNCH.md](LAUNCH.md).
 
-**2. `npm run setup` (developers running Studio from the code).** Gives *your own* computer a secure address in about 3 minutes:
+**2. `npm run setup` (developers running Studio from the code, with Cloudflare Access).** Gives *your own* computer a secure address behind an email login in about 3 minutes. If your email is a company address, colleagues at that company can open your share links; with a public provider like gmail.com, only you can:
 
 ```bash
 git clone https://github.com/cantivia/studio-cli.git && cd studio-cli && npm install && npm run setup
@@ -22,7 +21,7 @@ It asks for your work email and a Cloudflare token, then creates a private tunne
 locks it to **only your email**, adds the share-link rule for your company, saves the settings, and keeps Studio and the tunnel
 running in the background. `--dry-run` shows what it would do; it's safe to run again.
 
-**3. `npm run invite` (for whoever runs the company's Cloudflare).** Makes a teammate's address and prints their invite code:
+**3. `npm run invite` (optional, for whoever runs the company's Cloudflare).** Makes a teammate's address behind an email login and prints an invite code they paste into the app's "I have an invite code instead" link. Most people don't need this now that the app can set itself up:
 
 ```bash
 npm run invite -- --email feargal@cantivia.com
@@ -39,8 +38,7 @@ Delete it afterwards if you like.
 
 Good to know:
 - Your computer has to be on and awake. The Mac app and `setup` both keep it from idle-sleeping while connected (a Mac with the lid shut on battery still sleeps).
-- Studio checks the login itself as well as Cloudflare (`server/access.ts`), so a request from outside without a valid
-  token for the right rule gets a 403. The share-link login works only on `/share/…` pages, never on terminals or the API.
+- Two ways in from outside, set by `mode` in `remote.json` (`server/access.ts`): **pairing** (the Mac app: a phone pairs once with a single-use code made on the computer, then carries a device cookie; `server/devices.ts`) and **access** (Cloudflare Access with an email allow-list, used by `setup`/`invite`). In both, a request from outside without a valid pairing cookie or Access token gets a 403. Share links are the one public door: they need the secret link, and reach only that one conversation or workspace.
 
 ## Building the Mac app
 

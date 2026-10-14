@@ -71,7 +71,7 @@ console.log(`\n  Creating ${host} for ${email}…`);
 const tunnelToken = await CF.provisionTunnel(A, { name: `studio-${name}`, host, zone, port: PORT });
 const { aud, shareAud } = await CF.provisionAccess(A, { name, host, email, mailDomain });
 
-const invite = { v: 1, email, host, team, aud, allow: [email], shareAud, shareAllow: [`@${mailDomain}`], tunnelToken };
+const invite = { v: 1, email, host, team, aud, allow: [email], shareAud, shareAllow: CF.shareAudience(email).allow, tunnelToken };
 const code = INVITE_PREFIX + Buffer.from(JSON.stringify(invite)).toString('base64url');
 try {
   if (!DRY) execFileSync('pbcopy', { input: code });

@@ -3,6 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import type { IncomingHttpHeaders } from 'node:http';
 import { DATA_DIR } from './store.ts';
+import { verifyDevice } from './devices.ts';
 
 /**
  * Remote access (e.g. from an iPad) goes through a Cloudflare Tunnel with Cloudflare Access in front.
@@ -10,20 +11,27 @@ import { DATA_DIR } from './store.ts';
  * from this Mac must carry a valid Access token for an allowed account, or it gets a 403.
  * Without ~/.studio-cli/remote.json every non-local request is refused.
  *
+ * There are two ways to be let in from outside, set by `mode` in remote.json:
+ *  - "pairing" (the Mac app's default, no accounts or emails): a phone pairs once with a short code made on
+ *    this computer and then carries a device cookie (devices.ts). Anyone can use it; nobody gets in unpaired.
+ *  - "access" (the original): Cloudflare Access with an email allow-list, described below.
+ *
  * Every person runs their own Studio on their own computer, with their own tunnel, hostname and
  * Access app, and `allow` lists only them. The one exception is share links (/share/*): a second
  * Access app covers just that path and lets colleagues in (`shareAllow`), and the server still
  * requires the link's secret token (shares.ts) before showing them anything.
  */
 export type RemoteConfig = {
+  /** "pairing" (default for the Mac app) or "access" (Cloudflare Access with an email allow-list). */
+  mode?: 'access' | 'pairing';
   /** Public hostname, e.g. studio-cli.cantivia.com */
   host: string;
-  /** Zero Trust team domain, e.g. cantivia.cloudflareaccess.com */
-  team: string;
-  /** The Access application's AUD tag */
-  aud: string;
-  /** Allowed accounts: full emails or "@domain.com". Normally just you. */
-  allow: string[];
+  /** Access mode: Zero Trust team domain, e.g. cantivia.cloudflareaccess.com */
+  team?: string;
+  /** Access mode: the Access application's AUD tag */
+  aud?: string;
+  /** Access mode: allowed accounts, full emails or "@domain.com". Normally just you. */
+  allow?: string[];
   /** AUD tag of a second Access app that covers only <host>/share/* so others can open your share links. */
   shareAud?: string;
   /** Accounts that may open share links. Defaults to `allow`. */
@@ -38,7 +46,9 @@ export function remoteConfig(): RemoteConfig | null {
     const mtime = fs.statSync(CONFIG).mtimeMs;
     if (cached?.mtime !== mtime) {
       const c = JSON.parse(fs.readFileSync(CONFIG, 'utf8'));
-      const ok = c.host && c.team && c.aud && Array.isArray(c.allow) && c.allow.length;
+      const ok =
+        typeof c.host === 'string' &&
+        (c.mode === 'pairing' ? /^[a-z0-9.-]+\.[a-z]{2,}$/.test(c.host) : c.team && c.aud && Array.isArray(c.allow) && c.allow.length);
       cached = { mtime, cfg: ok ? c : null };
     }
     return cached.cfg;
@@ -80,7 +90,7 @@ export function isSharePath(p: string) {
   return parts[0] === '' && parts[1] === 'share' && parts.length >= 3 && parts.slice(2).every((seg) => /^[\w-]+(\.(js|css))?$/.test(seg));
 }
 
-async function verify(token: string, cfg: RemoteConfig, share: boolean): Promise<string | null> {
+async function verify(token: string, cfg: RemoteConfig & { team: string; aud: string; allow: string[] }, share: boolean): Promise<string | null> {
   const [h, p, s] = token.split('.');
   if (!h || !p || !s) return null;
   const header = JSON.parse(Buffer.from(h, 'base64url').toString());
@@ -100,6 +110,22 @@ async function verify(token: string, cfg: RemoteConfig, share: boolean): Promise
   return allowed ? email : null;
 }
 
+export const DEVICE_COOKIE = 'studio_device';
+
+/** Pages and files a not-yet-paired phone may fetch: the pairing page itself and the icons the install prompt needs. */
+const PUBLIC_FILES = new Set([
+  '/pair',
+  '/pair/claim',
+  '/manifest.webmanifest',
+  '/favicon.svg',
+  '/favicon-16.png',
+  '/favicon-64.png',
+  '/icon-192.png',
+  '/icon-512.png',
+  '/icon-maskable-512.png',
+  '/apple-touch-icon.png',
+]);
+
 const cookie = (headers: IncomingHttpHeaders, name: string) =>
   headers.cookie?.split(/;\s*/).find((c) => c.startsWith(`${name}=`))?.slice(name.length + 1);
 
@@ -111,10 +137,16 @@ export async function checkAccess(headers: IncomingHttpHeaders, urlPath = '/'): 
   if (!viaCloudflare && /^(127\.0\.0\.1|localhost|\[::1\])$/.test(host)) return true;
   const cfg = remoteConfig();
   if (!cfg || host !== cfg.host) return false;
+  if (cfg.mode === 'pairing') {
+    // Share links are open to anyone holding the secret link (shares.ts checks it); the rest needs a paired device.
+    if (PUBLIC_FILES.has(urlPath) || isSharePath(urlPath)) return true;
+    return verifyDevice(cookie(headers, DEVICE_COOKIE));
+  }
+  if (!cfg.team || !cfg.aud || !cfg.allow) return false;
   const token = (headers['cf-access-jwt-assertion'] as string | undefined) || cookie(headers, 'CF_Authorization');
   if (!token) return false;
   try {
-    return Boolean(await verify(token, cfg, isSharePath(urlPath)));
+    return Boolean(await verify(token, cfg as RemoteConfig & { team: string; aud: string; allow: string[] }, isSharePath(urlPath)));
   } catch {
     return false;
   }

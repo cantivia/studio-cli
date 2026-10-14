@@ -1,0 +1,8 @@
+{
+  "version": "0.1.0",
+  "note": "Where the installer lives. Update the URL when you upload a new version; the page reads this file, so no HTML edit is needed. (arm64/x64 are only used if you build with --split.)",
+  "universal": "https://dl.cantivia.com/studio-cli/Studio-CLI-0.1.0.dmg",
+  "arm64": null,
+  "x64": null,
+  "sizeMb": 271
+}

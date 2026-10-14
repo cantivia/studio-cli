@@ -76,19 +76,30 @@ export function createCloudflare({ token, api, dry = false, die, say = () => {} 
     return tunnelToken;
   }
 
+  /** Mail providers anyone can sign up to: never treat one as "the company". */
+  const PUBLIC_MAIL = new Set(['gmail.com', 'googlemail.com', 'outlook.com', 'hotmail.com', 'live.com', 'msn.com', 'yahoo.com', 'icloud.com', 'me.com', 'mac.com', 'aol.com', 'proton.me', 'protonmail.com', 'gmx.com', 'fastmail.com', 'hey.com']);
+
+  /** Who may open someone's share links: their company (a company domain), or just them (a public provider like gmail.com). */
+  const shareAudience = (email) => {
+    const d = email.split('@')[1];
+    return PUBLIC_MAIL.has(d)
+      ? { include: [{ email: { email } }], label: `Only ${email}`, allow: [email], describe: `only ${email}` }
+      : { include: [{ email_domain: { domain: d } }], label: `Anyone at @${d}`, allow: [`@${d}`], describe: `colleagues at @${d}` };
+  };
+
   /** Both Access apps for one person's address: the whole site for them alone, and /share/* for their company. */
   async function provisionAccess(A, { name, host, email, mailDomain }) {
     const main = await ensureApp(A, { name: `Studio CLI (${name})`, domain: host, include: [{ email: { email } }], label: `Only ${email}` });
     const share = await ensureApp(A, {
       name: `Studio CLI share links (${name})`,
       domain: `${host}/share/*`,
-      include: [{ email_domain: { domain: mailDomain } }],
-      label: `Anyone at @${mailDomain}`,
+      include: shareAudience(email).include,
+      label: shareAudience(email).label,
     });
     return { aud: main.aud, shareAud: share.aud };
   }
 
-  return { cf, writable, policyFor, pickAccount, teamDomain, ensureApp, findZone, provisionTunnel, provisionAccess };
+  return { cf, writable, policyFor, pickAccount, teamDomain, ensureApp, findZone, provisionTunnel, provisionAccess, shareAudience };
 }
 
 export const TOKEN_HELP = `  I need a Cloudflare API token, used once and never saved. Make one at:

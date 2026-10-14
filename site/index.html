@@ -1,0 +1,180 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Studio CLI — your terminals and Claude, in one calm window</title>
+<meta name="description" content="A Mac app that puts every terminal and Claude Code session in one window, and lets you reach them from your phone. Runs on your computer. No account.">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{--ink:#1d1d1f;--muted:#636366;--faint:#8e8e93;--violet:#6d28d9;--paper:#fbf9f4;--beige:#F5F1E8;--line:rgba(0,0,0,.08);--ease:cubic-bezier(.22,1,.36,1)}
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0;font:17px/1.55 Inter,-apple-system,BlinkMacSystemFont,system-ui,sans-serif;color:var(--ink);background:#fff;-webkit-font-smoothing:antialiased}
+  a{color:inherit}
+  .wrap{width:min(1120px,calc(100% - 48px));margin:0 auto}
+  .glow{position:absolute;inset:0 0 auto 0;height:720px;z-index:-1;background:radial-gradient(900px 480px at 18% 0,#ece6fb 0,transparent 62%),radial-gradient(700px 420px at 95% 8%,#f1ecfb 0,transparent 60%)}
+  header{display:flex;align-items:center;justify-content:space-between;padding:22px 0}
+  .brand{font-weight:700;letter-spacing:-.03em;font-size:22px;text-decoration:none}.brand b{font:800 13px ui-monospace,Menlo,monospace;margin-left:5px;letter-spacing:.02em}
+  nav{display:flex;gap:28px;font-size:15px;color:var(--muted)} nav a{text-decoration:none;transition:color .3s} nav a:hover{color:var(--ink)}
+  @media(max-width:640px){nav{display:none}}
+  .hero{text-align:center;padding:64px 0 28px}
+  .eyebrow{display:inline-block;font-size:12px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--violet)}
+  h1{font-size:clamp(38px,6.2vw,68px);line-height:1.04;letter-spacing:-.035em;margin:18px auto 20px;max-width:17ch;font-weight:700}
+  .lead{font-size:clamp(18px,2.2vw,21px);color:var(--muted);max-width:34em;margin:0 auto 34px}
+  .cta{display:inline-flex;align-items:center;gap:10px;background:var(--ink);color:#fff;font:600 17px inherit;font-family:inherit;padding:16px 30px;border-radius:99px;text-decoration:none;border:0;cursor:pointer;transition:background .35s var(--ease),transform .35s var(--ease),box-shadow .35s var(--ease);box-shadow:0 14px 34px -14px rgba(29,29,31,.5)}
+  .cta:hover{background:var(--violet);transform:translateY(-2px);box-shadow:0 20px 40px -14px rgba(109,40,217,.5)}
+  .sub{margin-top:14px;font-size:14px;color:var(--faint)} .sub a{color:var(--muted)}
+  .shot{margin:54px auto 0;border-radius:22px;border:1px solid var(--line);background:#fff;box-shadow:0 50px 100px -40px rgba(40,20,90,.35),0 2px 0 rgba(255,255,255,.8) inset;overflow:hidden}
+  .shot img{display:block;width:100%;height:auto}
+  section{padding:96px 0 0}
+  h2{font-size:clamp(30px,4vw,44px);letter-spacing:-.03em;line-height:1.1;margin:10px 0 14px;font-weight:700}
+  .section-lead{color:var(--muted);max-width:36em;margin:0 0 44px}
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:16px}
+  .card{border:1px solid var(--line);border-radius:22px;padding:26px;background:linear-gradient(#fff,#fcfbfe);transition:transform .5s var(--ease),box-shadow .5s var(--ease),border-color .5s}
+  .card:hover{transform:translateY(-4px);border-color:rgba(109,40,217,.25);box-shadow:0 26px 56px -24px rgba(109,40,217,.28)}
+  .card h3{margin:14px 0 6px;font-size:18px;letter-spacing:-.015em} .card p{margin:0;color:var(--muted);font-size:15.5px}
+  .ico{width:38px;height:38px;border-radius:12px;background:var(--beige);display:grid;place-items:center;color:var(--violet)}
+  .steps{counter-reset:s;display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px}
+  .step{border-radius:22px;background:var(--paper);padding:28px;border:1px solid var(--line);position:relative}
+  .step::before{counter-increment:s;content:counter(s);display:grid;place-items:center;width:30px;height:30px;border-radius:99px;background:var(--ink);color:#fff;font:600 14px Inter;margin-bottom:14px}
+  .step h3{margin:0 0 6px;font-size:18px} .step p{margin:0;color:var(--muted);font-size:15.5px}
+  .secure{border-radius:28px;background:var(--ink);color:#fff;padding:clamp(28px,5vw,56px);display:grid;gap:36px;grid-template-columns:repeat(auto-fit,minmax(300px,1fr))}
+  .secure h2{color:#fff;margin-top:6px} .secure p{color:#c7c7cc;margin:0}
+  .secure ul{list-style:none;margin:0;padding:0;display:grid;gap:14px}
+  .secure li{display:flex;gap:12px;color:#e5e5ea;font-size:15.5px} .secure li svg{flex:none;margin-top:3px;color:#a78bfa}
+  details{border-top:1px solid var(--line);padding:20px 4px} details:last-of-type{border-bottom:1px solid var(--line)}
+  summary{cursor:pointer;font-weight:600;font-size:17px;list-style:none;display:flex;justify-content:space-between;gap:16px}
+  summary::-webkit-details-marker{display:none} summary::after{content:'+';color:var(--faint);font-weight:400;font-size:22px;line-height:1}
+  details[open] summary::after{content:'–'} details p{color:var(--muted);margin:12px 0 0;max-width:46em;font-size:16px}
+  code{font:13.5px ui-monospace,Menlo,monospace;background:var(--beige);padding:2px 7px;border-radius:7px}
+  .final{text-align:center;padding:110px 0 70px}
+  footer{border-top:1px solid var(--line);padding:30px 0 44px;color:var(--faint);font-size:14px;display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap}
+  .reveal{opacity:0;transform:translateY(14px);transition:opacity .8s var(--ease),transform .8s var(--ease)} .reveal.in{opacity:1;transform:none}
+  @media(prefers-reduced-motion:reduce){.reveal{opacity:1;transform:none;transition:none}html{scroll-behavior:auto}}
+</style>
+</head>
+<body>
+<div class="glow"></div>
+<div class="wrap">
+  <header>
+    <a class="brand" href="/">studio<b>cli</b></a>
+    <nav><a href="#features">What it does</a><a href="#install">Install</a><a href="#security">Security</a><a href="#faq">FAQ</a></nav>
+  </header>
+
+  <main>
+  <div class="hero">
+    <span class="eyebrow">For Mac</span>
+    <h1>Every terminal and Claude, in one calm window.</h1>
+    <p class="lead">Studio CLI runs on your Mac and keeps your terminals and Claude Code sessions together, tidy and always one glance away. Pick it up from your phone, too.</p>
+    <a class="cta" id="download" href="#install">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12m0 0 4.5-4.5M12 15 7.5 10.5M4 20h16"/></svg>
+      <span id="download-label">Download for Mac</span>
+    </a>
+    <div class="sub" id="download-sub">macOS 12 or later · free</div>
+    <div class="shot reveal"><img src="/shot.png" alt="Studio CLI showing two terminals side by side in a workspace" width="1600" height="760" fetchpriority="high"></div>
+  </div>
+
+  <section id="features">
+    <span class="eyebrow">What it does</span>
+    <h2>Built for people who live in the terminal.</h2>
+    <p class="section-lead">Everything you already run, laid out so you can see what’s working, what’s finished, and what needs you.</p>
+    <div class="grid">
+      <div class="card reveal"><div class="ico"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg></div><h3>Workspaces that tile themselves</h3><p>One workspace per project: terminals, Claude and a browser, laid out automatically and colour-coded so you never lose your place.</p></div>
+      <div class="card reveal"><div class="ico"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z"/><path d="M19 17l.8 2.2L22 20l-2.2.8L19 23l-.8-2.2L16 20l2.2-.8z"/></svg></div><h3>Know when Claude is done</h3><p>A ring and a “Done” tick when a Claude turn finishes, with its last reply right in the sidebar. Reusable workflows in one click.</p></div>
+      <div class="card reveal"><div class="ico"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="7" y="2" width="10" height="20" rx="2.5"/><path d="M11 18h2"/></svg></div><h3>Your Mac, from your phone</h3><p>Scan a code once and your phone can reach your terminals anywhere, over your own private address. Remove any device, any time.</p></div>
+      <div class="card reveal"><div class="ico"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7"/><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7"/></svg></div><h3>Share with a link</h3><p>Send a teammate a conversation to continue in their own Claude, or let them watch a workspace live. Turn the link off whenever you like.</p></div>
+    </div>
+  </section>
+
+  <section id="install">
+    <span class="eyebrow">Install</span>
+    <h2>Three steps, about a minute.</h2>
+    <p class="section-lead">No terminal commands, no accounts.</p>
+    <div class="steps">
+      <div class="step reveal"><h3>Download</h3><p>Get the file for your Mac. We pick the right one for you, or choose below.</p><p style="margin-top:14px" id="alt-links"></p></div>
+      <div class="step reveal"><h3>Drag to Applications</h3><p>Open the download and drag <b>Studio CLI</b> onto <b>Applications</b>, then open it. macOS will ask you to approve it once (see the FAQ).</p></div>
+      <div class="step reveal"><h3>Open a workspace</h3><p>Pick a folder and start a shell, Claude, or both. Want it on your phone? Settings → <b>Phone &amp; remote access</b> → Turn on.</p></div>
+    </div>
+  </section>
+
+  <section id="security">
+    <div class="secure reveal">
+      <div>
+        <span class="eyebrow" style="color:#a78bfa">Security</span>
+        <h2>Your terminals never leave your Mac.</h2>
+        <p>Studio runs on your own computer. Nothing you type or see is sent to us, and there’s no account to create or password to leak.</p>
+      </div>
+      <ul>
+        <li><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg><span><b>Phones pair with a one-time code.</b> It works once and expires in five minutes. Nobody gets in without a device you approved.</span></li>
+        <li><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg><span><b>Remove any device instantly.</b> Turning phone access off signs everything out and gives your address back.</span></li>
+        <li><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg><span><b>Share links are secret and temporary.</b> They expire after a week, can be turned off any time, and are view-only unless you allow typing.</span></li>
+        <li><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg><span><b>Your Claude stays yours.</b> It uses your own Claude Code login and history, on your computer.</span></li>
+      </ul>
+    </div>
+  </section>
+
+  <section id="faq">
+    <span class="eyebrow">FAQ</span>
+    <h2>Good to know.</h2>
+    <div style="margin-top:28px">
+      <details><summary>Why does macOS say it can’t check the app?</summary><p>Studio CLI isn’t signed with a paid Apple developer certificate yet, so macOS asks you to approve it once. Open the app, click <b>Done</b>, then go to <b>System Settings → Privacy &amp; Security</b>, scroll down and click <b>Open Anyway</b> next to Studio CLI. You won’t be asked again. Prefer Terminal? <code>xattr -dr com.apple.quarantine "/Applications/Studio CLI.app"</code> does the same.</p></details>
+      <details><summary>Which Mac do I need?</summary><p>Any Mac running macOS 12 or later, Apple silicon or Intel. Not sure which you have? Apple menu → About This Mac. The download button picks the right file for you.</p></details>
+      <details><summary>Do I need Claude Code?</summary><p>Only for Claude panes. Terminals work without it. If you want Claude, install it from <a href="https://claude.com/claude-code">claude.com/claude-code</a> and sign in once. Studio tells you if it’s missing and shows the one-line install.</p></details>
+      <details><summary>Is phone access safe?</summary><p>Your phone reaches your Mac through a private encrypted tunnel to an address only you have, and every phone must be paired with a single-use code you create on your Mac. You can see and remove paired devices, and turn phone access off completely at any time. Your Mac has to be on and awake for your phone to reach it.</p></details>
+      <details><summary>Is it free? Windows or Linux?</summary><p>Free for now, and Mac only for now.</p></details>
+      <details><summary>How do I update or uninstall?</summary><p>To update, download the new version and drag it over the old one in Applications. Your workspaces and Claude history are kept. To uninstall, drag Studio CLI to the Trash.</p></details>
+    </div>
+  </section>
+
+  <div class="final reveal">
+    <h2>Give it a try.</h2>
+    <p class="section-lead" style="margin:0 auto 28px">Free, local, and ready in a minute.</p>
+    <a class="cta" id="download2" href="#install"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12m0 0 4.5-4.5M12 15 7.5 10.5M4 20h16"/></svg><span class="download-label-2">Download for Mac</span></a>
+  </div>
+  </main>
+  <footer><span>© Cantivia</span><span>Studio CLI is made by Cantivia.</span></footer>
+</div>
+
+<script>
+(async () => {
+  const $ = (id) => document.getElementById(id);
+  let d = null;
+  try { d = await (await fetch('/downloads.json', { cache: 'no-cache' })).json(); } catch {}
+  // Apple silicon Macs report a GPU named "Apple M…"/"Apple GPU"; Intel Macs report Intel/AMD. The browser's user agent says "Intel" for both.
+  function chip() {
+    try {
+      const gl = document.createElement('canvas').getContext('webgl');
+      const ext = gl && gl.getExtension('WEBGL_debug_renderer_info');
+      const r = ext ? String(gl.getParameter(ext.UNMASKED_RENDERER_WEBGL)) : '';
+      if (/Apple (M\d|GPU)/i.test(r)) return 'arm64';
+      if (/Intel|AMD|Radeon/i.test(r)) return 'x64';
+    } catch {}
+    return null;
+  }
+  const onMac = /Macintosh/.test(navigator.userAgent) && !/iPhone|iPad/.test(navigator.userAgent);
+  const labels = { universal: 'Download for Mac', arm64: 'Download for Mac (Apple chip)', x64: 'Download for Mac (Intel)' };
+  const links = !d ? null : d.universal ? { universal: d.universal } : { arm64: d.arm64, x64: d.x64 };
+  const guess = !links ? null : links.universal ? 'universal' : chip();
+  const size = d && d.sizeMb ? ` · ${d.sizeMb} MB` : '';
+  const ver = d ? `Version ${d.version} · ` : '';
+  const set = (key) => {
+    ['download', 'download2'].forEach((id) => { const a = $(id); if (key) { a.href = links[key]; a.setAttribute('download', ''); } });
+    $('download-label').textContent = key ? labels[key] : 'Download for Mac';
+    document.querySelectorAll('.download-label-2').forEach((e) => (e.textContent = key ? labels[key] : 'Download for Mac'));
+  };
+  if (links && guess) set(guess); else if (links) { ['download', 'download2'].forEach((id) => ($(id).href = '#install')); }
+  $('download-sub').innerHTML = onMac || !d ? `${ver}macOS 12 or later · free${size}` : 'Studio CLI is for Mac. Open this page on your Mac to download.';
+  if (links && !links.universal) {
+    $('alt-links').innerHTML = `<a href="${links.arm64}" download>Apple chip (M1 and newer)</a> · <a href="${links.x64}" download>Intel</a>`;
+  } else if (links) $('alt-links').textContent = 'One download works on every Mac.';
+  else $('alt-links').textContent = 'Downloads aren’t available yet.';
+  const io = new IntersectionObserver((es) => es.forEach((e) => e.isIntersecting && (e.target.classList.add('in'), io.unobserve(e.target))), { threshold: 0.12 });
+  document.querySelectorAll('.reveal').forEach((el) => io.observe(el));
+})();
+</script>
+</body>
+</html>

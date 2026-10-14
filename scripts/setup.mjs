@@ -145,9 +145,9 @@ if (update) {
   aud = hit.aud;
   done(`Only ${email} can open ${host}`);
   step('4. Share links');
-  const share = await CF.ensureApp(A, { name: `Studio CLI share links (${name})`, domain: `${host}/share/*`, include: [{ email_domain: { domain: mailDomain } }], label: `Anyone at @${mailDomain}` });
+  const share = await CF.ensureApp(A, { name: `Studio CLI share links (${name})`, domain: `${host}/share/*`, include: CF.shareAudience(email).include, label: CF.shareAudience(email).label });
   shareAud = share.aud;
-  done(`Colleagues at @${mailDomain} can open links you make (and nothing else)`);
+  done(`${CF.shareAudience(email).describe} can open links you make (and nothing else)`);
 } else {
   step('3. Your address');
   const domainGuess = mailDomain.includes('.') ? mailDomain : 'example.com';
@@ -163,11 +163,11 @@ if (update) {
 
   step('5. Lock it to you, and open share links to your company');
   ({ aud, shareAud } = await CF.provisionAccess(A, { name, host, email, mailDomain }));
-  done(`Only ${email} can open ${host}; colleagues at @${mailDomain} can open links you make (and nothing else)`);
+  done(`Only ${email} can open ${host}; ${CF.shareAudience(email).describe} can open links you make (and nothing else)`);
 }
 
 step(update ? '5. Save settings' : '6. Save settings');
-const remote = { host, team, aud, allow: [email], shareAud, shareAllow: [`@${mailDomain}`] };
+const remote = { host, team, aud, allow: [email], shareAud, shareAllow: CF.shareAudience(email).allow };
 if (!DRY) {
   fs.mkdirSync(DATA, { recursive: true });
   const file = path.join(DATA, 'remote.json');

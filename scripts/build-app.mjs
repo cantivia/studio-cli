@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 /**
  * Builds the Mac app and its installers: `npm run app` (DMGs in release/out) or `npm run app -- --dir`
- * (just the .app, faster, for testing). `--arch arm64` or `--arch x64` builds one chip.
+ * (just the .app, faster, for testing). By default one universal installer is built that runs on every Mac;
+ * `--split` makes separate Apple-chip and Intel ones instead, and `--arch arm64|x64` builds just one.
  *
  * What goes in the app: the built web app, the server and pty host bundled into two files, node-pty
  * (the one native piece), and the cloudflared program for the phone tunnel. Electron supplies Node.
@@ -24,7 +25,10 @@ const CACHE = path.join(REL, 'cache');
 const args = process.argv.slice(2);
 const DIR_ONLY = args.includes('--dir');
 const archArg = args.includes('--arch') ? args[args.indexOf('--arch') + 1] : null;
-const ARCHS = archArg ? [archArg] : DIR_ONLY ? [process.arch === 'arm64' ? 'arm64' : 'x64'] : ['arm64', 'x64'];
+const SPLIT = args.includes('--split');
+// What cloudflared and node-pty are fetched for; the installer itself may be one universal app made from both.
+const ARCHS = archArg ? [archArg] : DIR_ONLY && !args.includes('--universal') ? [process.arch === 'arm64' ? 'arm64' : 'x64'] : ['arm64', 'x64'];
+const UNIVERSAL = !archArg && !SPLIT && (!DIR_ONLY || args.includes('--universal'));
 const pkg = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8'));
 const run = (cmd, a, opts = {}) => execFileSync(cmd, a, { cwd: ROOT, stdio: 'inherit', ...opts });
 const log = (m) => console.log(`\n\x1b[1m${m}\x1b[0m`);
@@ -107,21 +111,27 @@ await packager({
     npmRebuild: false,
     nodeGypRebuild: false,
     buildDependenciesFromSource: false,
-    artifactName: '${productName}-${version}-${arch}.${ext}',
+    // No spaces, so download links stay clean. One universal file, or one per chip with --split.
+    artifactName: UNIVERSAL ? 'Studio-CLI-${version}.${ext}' : 'Studio-CLI-${version}-${arch}.${ext}',
     extraResources: [{ from: path.join(CACHE, 'cloudflared-${arch}'), to: 'cloudflared' }],
     mac: {
       category: 'public.app-category.developer-tools',
       icon: path.join(ROOT, 'build/icon.icns'),
-      target: [{ target: DIR_ONLY ? 'dir' : 'dmg', arch: ARCHS }],
+      target: [{ target: DIR_ONLY ? 'dir' : 'dmg', arch: UNIVERSAL ? ['universal'] : ARCHS }],
       hardenedRuntime: !!process.env.CSC_LINK || notarize,
       notarize,
+      // node-pty ships a separate native file per chip; both are in the app, each used by its own chip.
+      x64ArchFiles: 'Contents/Resources/app/node_modules/node-pty/prebuilds/**',
       extendInfo: { LSUIElement: false },
     },
     dmg: { title: 'Studio CLI', contents: [{ x: 130, y: 190 }, { x: 410, y: 190, type: 'link', path: '/Applications' }] },
     afterPack: async (ctx) => {
       // Without a Developer ID, apple-silicon Macs still refuse unsigned apps: sign ad-hoc so the app at least launches.
       if (process.env.CSC_LINK) return;
+      // The two halves of a universal app must be byte-identical apart from their programs, so only the merged app gets signed.
+      if (/-temp$/.test(ctx.appOutDir)) return;
       const app = path.join(ctx.appOutDir, `${ctx.packager.appInfo.productFilename}.app`);
+      if (!fs.existsSync(app)) return;
       execFileSync('codesign', ['--force', '--deep', '-s', '-', app], { stdio: 'inherit' });
     },
   },

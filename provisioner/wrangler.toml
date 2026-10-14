@@ -1,0 +1,28 @@
+# Deploy with: cd provisioner && npx wrangler deploy   (see README.md for the one-time setup)
+name = "studio-connect"
+main = "worker.mjs"
+compatibility_date = "2026-05-02"
+workers_dev = false
+
+# The address the Mac app calls (set up the DNS for it in Cloudflare, or use a route like this):
+routes = [{ pattern = "studio-api.cantivia.com", custom_domain = true }]
+
+[vars]
+DOMAIN = "cantivia.com"
+LOCAL_PORT = "4600"
+MAX_PER_DAY = "300"
+PER_IP_PER_DAY = "3"
+STALE_DAYS = "180"
+# Also set these two (not secret, but specific to your account), before the first deploy:
+# CF_ACCOUNT_ID = "…"
+# CF_ZONE_ID = "…"   # the zone for DOMAIN
+
+[[kv_namespaces]]
+binding = "REG"
+id = "REPLACE_WITH_KV_NAMESPACE_ID"   # npx wrangler kv namespace create REG
+
+[triggers]
+crons = ["17 4 * * *"]
+
+# Secret (never put in this file): npx wrangler secret put CF_API_TOKEN
+#   token permissions: Account · Cloudflare Tunnel · Edit, Zone · DNS · Edit (for the one zone)
