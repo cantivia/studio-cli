@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { Columns2, Copy, Sparkles, SquareTerminal } from 'lucide-react';
 import { api } from '../lib/api';
+import { installClaude, INSTALL_CLAUDE } from '../lib/setup';
 import { useStore } from '../lib/store';
 import { DirPicker } from './DirPicker';
 import { Swatches } from './Swatches';
@@ -29,7 +30,7 @@ export function NewWorkspaceDialog() {
   useEffect(() => {
     if (open) api.get<{ claude: boolean }>('/api/doctor').then((r) => setHasClaude(r.claude)).catch(() => setHasClaude(null));
   }, [open]);
-  const INSTALL = 'curl -fsSL https://claude.ai/install.sh | bash';
+  const INSTALL = INSTALL_CLAUDE;
 
   return (
     <AnimatePresence>
@@ -88,13 +89,22 @@ export function NewWorkspaceDialog() {
             </div>
             {hasClaude === false && layout !== 'shell' && (
               <div className="mt-4 rounded-2xl bg-[#f59e0b]/10 px-4 py-3 text-[13px] leading-relaxed text-[#92400e]">
-                <b>Claude Code isn’t installed on this computer yet.</b> Paste this in a Shell workspace to install it, then run <code className="font-mono">claude</code> once to sign in:
+                <b>Claude Code isn’t installed on this computer yet.</b> Studio can install it for you, or you can run this yourself in a Shell workspace:
                 <div className="mt-2 flex items-center gap-2 rounded-xl bg-white/70 px-3 py-2 font-mono text-[12px] text-ink">
                   <span className="min-w-0 flex-1 truncate">{INSTALL}</span>
                   <button onClick={() => navigator.clipboard.writeText(INSTALL).catch(() => {})} title="Copy" className="grid h-6 w-6 shrink-0 place-items-center rounded-md hover:bg-black/5">
                     <Copy size={12} />
                   </button>
                 </div>
+                <button
+                  onClick={() => {
+                    set({ newWorkspaceOpen: false });
+                    installClaude();
+                  }}
+                  className="mt-2.5 rounded-full bg-ink px-4 py-1.5 text-[12px] font-medium text-white transition hover:bg-violet"
+                >
+                  Install it for me
+                </button>
               </div>
             )}
             <div className="mt-6 flex justify-end gap-2">

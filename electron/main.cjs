@@ -19,6 +19,8 @@ let server = null;
 let win = null;
 let quitting = false;
 let blocker = null;
+// STUDIO_HIDDEN=1 (used by automated tests): no window, no Dock icon, nothing appears on screen.
+const HIDDEN = process.env.STUDIO_HIDDEN === '1';
 
 const get = (route) =>
   new Promise((resolve) => {
@@ -82,7 +84,8 @@ function createWindow() {
     backgroundColor: '#ffffff',
     titleBarStyle: 'hiddenInset',
     trafficLightPosition: { x: 18, y: 14 },
-    webPreferences: { contextIsolation: true, sandbox: true },
+    show: !HIDDEN,
+    webPreferences: { contextIsolation: true, sandbox: true, backgroundThrottling: !HIDDEN },
   });
   // Pages opened from Studio: share links (they hand a conversation back to this window) open here;
   // any other web address opens in your normal browser.
@@ -107,6 +110,7 @@ function createWindow() {
 }
 
 function show() {
+  if (HIDDEN) return;
   if (!win) createWindow();
   else win.show();
 }
@@ -178,6 +182,7 @@ else {
   app.on('window-all-closed', () => {});
 
   app.whenReady().then(async () => {
+    if (HIDDEN) app.dock?.hide();
     buildMenu();
     if (await portInUse()) {
       dialog.showErrorBox('Studio is already running', `Something is already serving Studio on port ${PORT} on this computer, so this app can't start another. Quit the other one first.`);

@@ -42,6 +42,12 @@ async function submit() {
 go.addEventListener('click', submit);
 input.addEventListener('keydown', (e) => e.key === 'Enter' && !go.disabled && submit());
 // Arriving from the QR code: the code is in the address after the #. Use it, then remove it from the address bar.
-const fromQr = location.hash.slice(1);
-if (fromQr) { history.replaceState(null, '', location.pathname); input.value = fromQr; input.dispatchEvent(new Event('input')); if (!go.disabled) submit(); }
+function fromQr() {
+  const c = location.hash.slice(1);
+  if (!c) return;
+  history.replaceState(null, '', location.pathname);
+  input.value = c; input.dispatchEvent(new Event('input')); if (!go.disabled) submit();
+}
+fromQr();
+addEventListener('hashchange', fromQr); // scanning a QR code while this page is already open
 </script></main></body></html>`;

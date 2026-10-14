@@ -22,13 +22,20 @@ Until the app is signed with a paid Apple developer certificate, macOS asks you 
 
 Studio asks whether to open at login. Say yes if you want your phone to always be able to reach this computer.
 
-## 4. Claude (optional)
+## 4. Follow the checklist
 
-Terminals work straight away. For Claude panes, Studio runs *your own* Claude Code. If it isn't installed, Studio tells you when you create a Claude workspace and shows the one-line install; run `claude` once in any Studio terminal to sign in. Your Claude login and history stay on your computer.
+The first time you open Studio, a short checklist walks you through it:
+
+1. **Install Claude Code**: one click ("Install it for me") runs Claude's own installer in a terminal you can watch. Skip it if you already have Claude Code.
+2. **Sign in to Claude**: one click opens Claude's sign-in in your browser. Your Claude login and history stay on your computer.
+3. **Open your first workspace**: pick a folder, then a shell, Claude, or both side by side.
+4. **Use it from your phone** (optional): see below.
+
+The ticks appear by themselves as each step finishes. Terminals work without Claude, so you can skip straight to step 3.
 
 ## 5. Use it from your phone or iPad
 
-1. In Studio, click the settings icon (bottom left) → **Phone & remote access** → **Turn on phone access**. Your computer gets its own private address, like `studio-brave-otter-4821.cantivia.com`.
+1. In Studio, click the settings icon (bottom left) → **Phone & remote access** → **Turn on phone access** (or use the last step of the checklist). Your computer gets its own private address, like `studio-brave-otter-4821.cantivia.com`.
 2. Press **Add a phone**. A QR code and a short code appear.
 3. On your phone, scan the QR code with the camera (or open the address, then `/pair`, and type the code). Done: that phone is paired.
 

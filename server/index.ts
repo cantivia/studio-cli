@@ -178,7 +178,13 @@ const app = express();
 // Requests from this Mac pass; remote ones (Cloudflare Tunnel) need a valid Access login.
 // Share links (/share/*) have their own, narrower rule: see access.ts.
 app.use((req, res, next) => {
-  checkAccess(req.headers, req.originalUrl.split('?')[0]).then((ok) => (ok ? next() : res.status(403).send('Forbidden')));
+  checkAccess(req.headers, req.originalUrl.split('?')[0]).then((ok) => {
+    if (ok) return next();
+    // A phone that isn't paired (or was removed) opening the address lands on the pairing page, not a bare error.
+    const wantsPage = req.method === 'GET' && String(req.headers.accept || '').includes('text/html') && !req.path.startsWith('/api');
+    if (wantsPage && remoteConfig()?.mode === 'pairing') return res.redirect(302, '/pair');
+    res.status(403).send('Forbidden');
+  });
 });
 // Shared conversations arrive as one big JSON body; everything else is small.
 const bigJson = express.json({ limit: '200mb' });
@@ -259,27 +265,44 @@ app.get(
   }),
 );
 
-// Is Claude Code installed on this computer? The new-workspace dialog uses this to say how to get it.
-let claudeFound: { at: number; found: boolean } | null = null;
+// Is Claude Code installed on this computer, and signed in? The Get started checklist and the new-workspace dialog use this.
+// STUDIO_CLAUDE_BIN points detection at one specific program (used by tests).
+let claudeStatus: { at: number; installed: boolean; loggedIn: boolean | null } | null = null;
+const run = (cmd: string, args: string[], ms = 8000) =>
+  new Promise<string>((resolve) => {
+    const c = spawn(cmd, args, { stdio: ['ignore', 'pipe', 'ignore'] });
+    let out = '';
+    c.stdout.on('data', (d) => (out += d));
+    c.on('close', () => resolve(out));
+    c.on('error', () => resolve(''));
+    setTimeout(() => (c.kill(), resolve(out)), ms);
+  });
+async function detectClaude() {
+  const forced = process.env.STUDIO_CLAUDE_BIN;
+  const known = forced
+    ? [forced]
+    : ['.local/bin/claude', '.claude/local/claude', '.npm-global/bin/claude', '.bun/bin/claude'].map((p) => path.join(os.homedir(), p)).concat('/opt/homebrew/bin/claude', '/usr/local/bin/claude');
+  let bin = known.find((p) => fs.existsSync(p)) || '';
+  // Not in a usual place: ask a login shell, which sees the user's PATH like a normal terminal does.
+  if (!bin && !forced) {
+    const out = await run(process.env.SHELL || '/bin/zsh', ['-l', '-i', '-c', 'command -v claude'], 6000);
+    bin = out.split('\n').map((l) => l.trim()).find((l) => l.startsWith('/')) || '';
+  }
+  if (!bin) return { installed: false, loggedIn: null };
+  const out = await run(bin, ['auth', 'status'], 10000);
+  const j = out.slice(out.indexOf('{'), out.lastIndexOf('}') + 1);
+  try {
+    return { installed: true, loggedIn: JSON.parse(j).loggedIn === true };
+  } catch {
+    return { installed: true, loggedIn: null };
+  }
+}
 app.get(
   '/api/doctor',
   wrap(async (_req, res) => {
-    if (!claudeFound || Date.now() - claudeFound.at > 30_000) {
-      const known = ['.local/bin/claude', '.claude/local/claude', '.npm-global/bin/claude', '.bun/bin/claude'].map((p) => path.join(os.homedir(), p));
-      let found = [...known, '/opt/homebrew/bin/claude', '/usr/local/bin/claude'].some((p) => fs.existsSync(p));
-      if (!found) {
-        // A login shell sees PATH additions from the user's profile, like a normal terminal does.
-        found = await new Promise<boolean>((resolve) => {
-          const c = spawn(process.env.SHELL || '/bin/zsh', ['-l', '-i', '-c', 'command -v claude'], { stdio: ['ignore', 'pipe', 'ignore'] });
-          let out = '';
-          c.stdout.on('data', (d) => (out += d));
-          c.on('close', () => resolve(out.split('\n').some((l) => l.trim().startsWith('/'))));
-          setTimeout(() => (c.kill(), resolve(false)), 6000);
-        });
-      }
-      claudeFound = { at: Date.now(), found };
-    }
-    res.json({ claude: claudeFound.found });
+    if (!claudeStatus || Date.now() - claudeStatus.at > 3_000) claudeStatus = { at: Date.now(), ...(await detectClaude()) };
+    // `claude` kept for the new-workspace dialog; the email is deliberately not exposed.
+    res.json({ claude: claudeStatus.installed, installed: claudeStatus.installed, loggedIn: claudeStatus.loggedIn });
   }),
 );
 

@@ -1,9 +1,10 @@
-import { useRef } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useShallow } from 'zustand/react/shallow';
-import { Globe, LayoutGrid, Plus, Sparkles, SquareTerminal, Wand2 } from 'lucide-react';
+import { Check, Globe, LayoutGrid, Plus, Sparkles, SquareTerminal, Wand2 } from 'lucide-react';
 import { useStore } from '../lib/store';
 import { findPane, panes } from '../lib/layout';
-import { uid } from '../lib/api';
+import { api, uid } from '../lib/api';
+import { installClaude, signInToClaude } from '../lib/setup';
 import type { LayoutNode, Pane, Workspace } from '../lib/types';
 import { TerminalView } from './TerminalView';
 import { BrowserView } from './BrowserView';
@@ -249,30 +250,73 @@ function ClaudePanelToggle({ ws, btn }: { ws: Workspace; btn: string }) {
   );
 }
 
+type Doctor = { installed: boolean; loggedIn: boolean | null };
+
+/** First run: a short checklist that gets Claude installed and signed in, a first workspace open, and (optionally) the phone connected. */
 function EmptyState() {
   const set = useStore((s) => s.set);
+  const [doc, setDoc] = useState<Doctor | null>(null);
+  const [managed, setManaged] = useState(false);
+  const check = useCallback(() => api.get<Doctor>('/api/doctor').then(setDoc).catch(() => {}), []);
+  useEffect(() => {
+    check();
+    api.get<{ managed: boolean }>('/api/remote').then((r) => setManaged(r.managed)).catch(() => {});
+    // Installing and signing in happen in a terminal or browser tab: keep checking so the ticks appear by themselves.
+    const t = setInterval(check, 2500);
+    window.addEventListener('focus', check);
+    return () => (clearInterval(t), window.removeEventListener('focus', check));
+  }, [check]);
+
+  const signedIn = doc?.loggedIn === true;
+  type Step = { done: boolean; title: string; hint: string; action?: { label: string; run: () => void; primary?: boolean }; optional?: boolean };
+  const steps: Step[] = [
+    doc && !doc.installed
+      ? { done: false, title: 'Install Claude Code', hint: 'Studio runs your own Claude Code. One click installs it here, in a terminal you can watch.', action: { label: 'Install it for me', run: installClaude, primary: true } }
+      : { done: !!doc?.installed, title: 'Claude Code', hint: doc ? 'Installed on this computer.' : 'Checking…' },
+    doc?.installed && !signedIn
+      ? { done: false, title: 'Sign in to Claude', hint: 'A browser tab opens to approve it. Then come back here.', action: { label: 'Sign in', run: signInToClaude, primary: true } }
+      : { done: signedIn, title: 'Sign in to Claude', hint: signedIn ? 'Signed in. Your Claude history stays on this computer.' : doc ? 'Install Claude Code first.' : 'Checking…' },
+    { done: false, title: 'Open your first workspace', hint: 'Pick a folder, then a shell, Claude, or both side by side.', action: { label: 'New workspace', run: () => set({ newWorkspaceOpen: true }), primary: !!doc?.installed && signedIn } },
+    ...(managed ? [{ done: false, optional: true, title: 'Use it from your phone', hint: 'Optional. Pair your phone or iPad with a QR code. No account needed.', action: { label: 'Set up', run: () => set({ remoteOpen: true }) } } as Step] : []),
+  ];
+
   return (
-    <div className="grid h-full place-items-center px-6">
-      <div className="max-w-xl text-center">
-        <div className="mx-auto mb-6 grid h-16 w-16 place-items-center rounded-[22px] surface">
-          <Mark size={30} />
+    <div className="grid h-full place-items-center overflow-y-auto px-6 py-8">
+      <div className="w-full max-w-xl">
+        <div className="text-center">
+          <div className="mx-auto mb-5 grid h-14 w-14 place-items-center rounded-[20px] surface">
+            <Mark size={26} />
+          </div>
+          <h1 className="text-[34px] font-semibold leading-[1.1] tracking-[-0.025em] text-ink">
+            Let’s get you <span className="text-violet">set up.</span>
+          </h1>
+          <p className="mx-auto mt-3 max-w-md text-[14.5px] leading-relaxed text-muted">A minute, and you’re ready. Studio keeps all your terminals and Claude sessions in one calm window.</p>
         </div>
-        <h1 className="text-[40px] font-semibold leading-[1.08] tracking-[-0.025em] text-ink">
-          Every agent, <span className="text-violet">one calm surface.</span>
-        </h1>
-        <p className="mx-auto mt-4 max-w-md text-[15px] leading-relaxed text-muted">
-          Workspaces full of terminals and Claude, each in its own colour. Rings and a Done tick when Claude needs you, and an agent
-          view to watch them all work.
-        </p>
-        <div className="mt-8 flex justify-center gap-3">
-          <button
-            onClick={() => set({ newWorkspaceOpen: true })}
-            className="flex items-center gap-2 rounded-full bg-ink px-5 py-2.5 text-[14px] font-medium text-white transition hover:bg-violet active:scale-[0.98]"
-          >
-            <Plus size={15} /> New workspace
-          </button>
-        </div>
-        <div className="mt-10 flex justify-center gap-6 text-[12px] text-faint">
+        <ol className="mt-7 space-y-2.5">
+          {steps.map((st, i) => (
+            <li key={st.title} data-testid="setup-step" className={`liquid-glass flex items-center gap-4 rounded-[20px] px-5 py-4 transition ${st.done ? 'opacity-70' : ''}`}>
+              <span className={`grid h-8 w-8 shrink-0 place-items-center rounded-full text-[13px] font-semibold ${st.done ? 'bg-[#16a34a] text-white' : 'bg-ink text-white'}`}>
+                {st.done ? <Check size={15} strokeWidth={3} /> : i + 1}
+              </span>
+              <div className="min-w-0 flex-1">
+                <div className="text-[14.5px] font-semibold text-ink">
+                  {st.title}
+                  {st.optional && <span className="ml-2 text-[11px] font-medium uppercase tracking-[0.08em] text-faint">optional</span>}
+                </div>
+                <div className="mt-0.5 text-[12.5px] leading-snug text-muted">{st.hint}</div>
+              </div>
+              {st.action && !st.done && (
+                <button
+                  onClick={st.action.run}
+                  className={`shrink-0 rounded-full px-4 py-2 text-[13px] font-medium transition active:scale-[0.98] ${st.action.primary ? 'bg-ink text-white hover:bg-violet' : 'text-muted hover:bg-white hover:text-ink'}`}
+                >
+                  {st.action.label}
+                </button>
+              )}
+            </li>
+          ))}
+        </ol>
+        <div className="mt-8 flex justify-center gap-6 text-[12px] text-faint">
           <span className="flex items-center gap-1.5">
             <SquareTerminal size={13} /> <kbd>⌘D</kbd> split
           </span>
