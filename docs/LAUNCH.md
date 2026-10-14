@@ -7,7 +7,7 @@ What changes: the GitHub repo becomes public (with the Mac app as a GitHub relea
 ## 0. Decisions to confirm before step 1
 
 - **Licence.** `LICENSE` is MIT (copyright Cantivia), the most common choice and the same as the Agent View code it builds on. Change it before going public if you want something else.
-- **Your email in the history.** All 15 commits are authored as `ashkansamali@outlook.com`. When the repo is public, that address is visible on GitHub. If you'd rather it weren't, say so first: it needs a history rewrite to GitHub's no-reply address (new commit IDs), which is only safe *before* going public.
+- **The author email in the history.** All the commits are authored with your personal Outlook address. When the repo is public that address is visible on GitHub. If you'd rather it weren't, say so first: it needs a history rewrite to GitHub's no-reply address (new commit IDs), which is only safe *before* going public.
 - **Third-party art.** The Agent View's sprites and the *FS Pixel Sans Unicode* font are redistributed exactly as upstream Pixel Agents (public, MIT) ships them, credited in `CREDITS.md`. I could not independently confirm separate terms for the sprites and font; a quick look at the upstream project before going public is sensible.
 
 Already checked: no keys, tokens or secrets anywhere in the current code or in the full history; no personal names left in the docs.
@@ -24,6 +24,8 @@ Check: open https://github.com/cantivia/studio-cli in a private browser window.
 *Undo:* `gh repo edit cantivia/studio-cli --visibility private --accept-visibility-change-consequences`. Anything already copied while it was public can't be recalled, which is why step 0 comes first.
 
 ## 2. Merge the branch to `main`
+
+Note: your local `main` already has 6 commits that aren't on GitHub yet (phone/iPad access, terminals surviving restarts, workspace sharing). They're part of this branch's history and will be pushed with it, so they go public too.
 
 ```bash
 git checkout main && git merge --no-ff share-links && git push origin main
