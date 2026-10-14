@@ -295,7 +295,8 @@ export class TerminalManager extends EventEmitter {
     return strip(term);
   }
 
-  attach(id: string, ws: WebSocket) {
+  /** `guest` is for share-link visitors: they never resize the pty, and can type only while `canType()` says so. */
+  attach(id: string, ws: WebSocket, guest?: { canType: () => boolean }) {
     const term = this.terms.get(id);
     if (!term) {
       ws.close(4404, 'no such terminal');
@@ -307,6 +308,7 @@ export class TerminalManager extends EventEmitter {
     ws.send('\x00' + JSON.stringify({ t: 'size', cols: term.cols, rows: term.rows }));
     ws.on('message', (raw) => {
       const msg = raw.toString();
+      if (guest && (msg.startsWith('\x00') || !guest.canType())) return;
       if (msg.startsWith('\x00')) {
         // Control frame: \x00{"t":"resize","cols":..,"rows":..}
         try {

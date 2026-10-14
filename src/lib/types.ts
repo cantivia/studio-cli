@@ -82,4 +82,16 @@ export type Activity = {
   status: string;
 };
 
-export type Mode = 'workspaces' | 'office' | 'sessions';
+export type Mode = 'workspaces' | 'office' | 'sessions' | 'shared';
+
+/** A share link made by this Studio (see server/shares.ts). */
+export type Share = {
+  token: string;
+  kind: 'session' | 'workspace';
+  ref: string;
+  title: string;
+  createdAt: number;
+  expiresAt: number;
+  canType: boolean;
+  url: string;
+};

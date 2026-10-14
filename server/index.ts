@@ -1,5 +1,6 @@
 import express from 'express';
 import http from 'node:http';
+import { spawn } from 'node:child_process';
 import path from 'node:path';
 import fs from 'node:fs';
 import os from 'node:os';
@@ -8,13 +9,19 @@ import { fileURLToPath } from 'node:url';
 import { WebSocketServer, type WebSocket } from 'ws';
 import { TerminalManager, type TermNotification } from './terminals.ts';
 import { descendants, gitInfo, listeningPorts, prInfo, processCwd, processTree, type GitInfo, type PrInfo } from './meta.ts';
-import { listSessions, listSlashCommands, readActivity, readClaudeProcs, transcriptExists, transcriptPath, type ClaudeProc } from './claude.ts';
+import { findTranscript, importTranscript, listSessions, listSlashCommands, readActivity, readClaudeProcs, sessionInfo, transcriptExists, transcriptPath, type ClaudeProc } from './claude.ts';
 import { customCommands, listDirs, loadWorkflows, loadWorkspaces, saveWorkflows, saveWorkspaces } from './store.ts';
 import { installShellIntegration } from './shell.ts';
 import { offices, toolStatus, type AgentState } from './offices.ts';
 import { checkAccess, isAllowedOrigin, remoteConfig } from './access.ts';
+import { createShare, getShare, listShares, revokeShare, updateShare } from './shares.ts';
+import { guestPage } from './share-page.ts';
 
 installShellIntegration();
+
+// Remote access only works while this Mac is awake, so don't let it idle-sleep while Studio runs with remote access set up.
+// (Closing the lid on battery still sleeps it; on power with the lid open it stays reachable.)
+if (remoteConfig() && process.platform === 'darwin') spawn('caffeinate', ['-i', '-w', String(process.pid)], { stdio: 'ignore' }).unref();
 
 const PORT = Number(process.env.PORT || 4600);
 const HOST = '127.0.0.1';
@@ -162,10 +169,14 @@ async function agentState(
 // ── HTTP API ────────────────────────────────────────────────────────────────
 const app = express();
 // Requests from this Mac pass; remote ones (Cloudflare Tunnel) need a valid Access login.
+// Share links (/share/*) have their own, narrower rule: see access.ts.
 app.use((req, res, next) => {
-  checkAccess(req.headers).then((ok) => (ok ? next() : res.status(403).send('Forbidden')));
+  checkAccess(req.headers, req.originalUrl.split('?')[0]).then((ok) => (ok ? next() : res.status(403).send('Forbidden')));
 });
-app.use(express.json({ limit: '2mb' }));
+// Shared conversations arrive as one big JSON body; everything else is small.
+const bigJson = express.json({ limit: '200mb' });
+const smallJson = express.json({ limit: '2mb' });
+app.use((req, res, next) => (req.path === '/api/session-import' ? next() : smallJson(req, res, next)));
 
 const wrap =
   (fn: (req: express.Request, res: express.Response) => Promise<unknown>) =>
@@ -238,6 +249,127 @@ app.get(
     if (!m?.claude) return res.json(null);
     const act = await readActivity(transcriptPath(m.claude.cwd, m.claude.sessionId));
     res.json({ ...act, sessionId: m.claude.sessionId, status: m.claude.status });
+  }),
+);
+
+// ── Share links ─────────────────────────────────────────────────────────────
+// Owner side (needs your login): make, list, change and revoke links.
+const linkBase = (req: express.Request) => {
+  const cfg = remoteConfig();
+  return cfg ? `https://${cfg.host}` : `${req.protocol}://${req.headers.host}`;
+};
+const withUrl = (req: express.Request, s: Awaited<ReturnType<typeof createShare>>) => ({ ...s, url: `${linkBase(req)}/share/${s.token}` });
+
+app.get(
+  '/api/shares',
+  wrap(async (req, res) => res.json((await listShares()).map((s) => withUrl(req, s)))),
+);
+app.post(
+  '/api/shares',
+  wrap(async (req, res) => {
+    const { kind, ref } = req.body || {};
+    let title: string;
+    if (kind === 'session') {
+      const info = await sessionInfo(String(ref));
+      if (!info) return res.status(404).json({ error: 'That conversation has no saved transcript yet' });
+      title = info.title;
+    } else if (kind === 'workspace') {
+      const w = (shared.workspaces || []).find((x) => (x as { id: string }).id === ref) as { name?: string } | undefined;
+      if (!w) return res.status(404).json({ error: 'No such workspace' });
+      title = w.name || 'Workspace';
+    } else return res.status(400).json({ error: 'kind must be session or workspace' });
+    res.json(withUrl(req, await createShare(kind, String(ref), title)));
+  }),
+);
+app.patch(
+  '/api/shares/:token',
+  wrap(async (req, res) => {
+    const s = await updateShare(String(req.params.token), req.body || {});
+    res.json(s ? withUrl(req, s) : { error: 'No such link' });
+  }),
+);
+const guests = new Map<string, Set<WebSocket>>();
+app.delete(
+  '/api/shares/:token',
+  wrap(async (req, res) => {
+    const token = String(req.params.token);
+    // Turning a link off also drops anyone watching through it.
+    for (const ws of guests.get(token) || []) ws.close(4403, 'link revoked');
+    res.json({ ok: await revokeShare(token) });
+  }),
+);
+// A conversation someone shared with you arrives from your browser (see Shared.tsx) and lands in your own Claude history.
+app.post(
+  '/api/session-import',
+  bigJson,
+  wrap(async (req, res) => {
+    const { sessionId, cwd, transcript } = req.body || {};
+    if (typeof transcript !== 'string' || typeof sessionId !== 'string') return res.status(400).json({ error: 'expected sessionId and transcript' });
+    const dir = typeof cwd === 'string' && cwd ? cwd : os.homedir();
+    if (!fs.existsSync(dir) || !fs.statSync(dir).isDirectory()) return res.status(400).json({ error: `No such folder: ${dir}` });
+    const added = await importTranscript(sessionId, dir, transcript);
+    res.json({ sessionId, cwd: dir, added });
+  }),
+);
+
+// Guest side (a link's visitor): a standalone page, its data, and its terminals. Nothing else is reachable.
+const guestHeaders = (res: express.Response) => {
+  res.set({
+    'Cache-Control': 'no-store',
+    'Referrer-Policy': 'no-referrer',
+    'X-Frame-Options': 'DENY',
+    'Content-Security-Policy': "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; connect-src 'self' ws: wss:; img-src data:",
+  });
+};
+const XTERM = path.join(ROOT, 'node_modules/@xterm/xterm');
+app.get('/share/_/xterm.js', (_req, res) => res.sendFile(path.join(XTERM, 'lib/xterm.js')));
+app.get('/share/_/xterm.css', (_req, res) => res.sendFile(path.join(XTERM, 'css/xterm.css')));
+app.get('/share/:token', (_req, res) => {
+  guestHeaders(res);
+  res.type('html').send(guestPage());
+});
+
+/** Live terminals of a shared workspace, in layout order. */
+function sharedPanes(workspaceId: string) {
+  const w = (shared.workspaces || []).find((x) => (x as { id: string }).id === workspaceId) as { name?: string; root?: unknown } | undefined;
+  if (!w) return null;
+  const out: { id: string; title: string; cwd: string }[] = [];
+  const walk = (n: any) => {
+    if (n?.type === 'pane') {
+      const t = n.pane?.termId && terms.get(n.pane.termId);
+      if (t && !t.exited) out.push({ id: t.id, title: n.pane.name || (n.pane.command?.startsWith('claude') ? 'Claude' : t.title), cwd: meta[t.id]?.cwd || t.cwd });
+    } else if (n?.type === 'split') walk(n.a), walk(n.b);
+  };
+  walk(w.root);
+  return { name: w.name || 'Workspace', panes: out };
+}
+
+app.get(
+  '/share/api/:token',
+  wrap(async (req, res) => {
+    guestHeaders(res);
+    const s = await getShare(String(req.params.token));
+    if (!s) return res.status(404).json({ error: 'No such link' });
+    if (s.kind === 'session') {
+      const info = await sessionInfo(s.ref);
+      if (!info) return res.status(404).json({ error: 'That conversation is gone' });
+      return res.json({ kind: 'session', title: info.title, sessionId: info.sessionId, project: info.project, expiresAt: s.expiresAt });
+    }
+    const w = sharedPanes(s.ref);
+    if (!w) return res.status(404).json({ error: 'That workspace is closed' });
+    res.json({ kind: 'workspace', title: w.name, canType: s.canType, panes: w.panes, expiresAt: s.expiresAt });
+  }),
+);
+app.get(
+  '/share/api/:token/transcript',
+  wrap(async (req, res) => {
+    guestHeaders(res);
+    const s = await getShare(String(req.params.token));
+    if (!s || s.kind !== 'session') return res.status(404).json({ error: 'No such link' });
+    const file = await findTranscript(s.ref);
+    if (!file) return res.status(404).json({ error: 'That conversation is gone' });
+    if (req.query.download) res.attachment(`${s.ref}.jsonl`);
+    res.type('text/plain').send(await fs.promises.readFile(file, 'utf8'));
   }),
 );
 
@@ -329,11 +461,24 @@ const server = http.createServer(app);
 const wss = new WebSocketServer({ noServer: true });
 
 server.on('upgrade', async (req, socket, head) => {
-  if (!(await checkAccess(req.headers))) return socket.end('HTTP/1.1 403 Forbidden\r\n\r\n');
+  if (!(await checkAccess(req.headers, (req.url || '/').split('?')[0]))) return socket.end('HTTP/1.1 403 Forbidden\r\n\r\n');
   // Same-origin only: a page on another site must not be able to type into a shell.
   const origin = req.headers.origin;
   if (origin && !isAllowedOrigin(origin)) return socket.destroy();
   const url = new URL(req.url || '/', BASE_URL);
+  // A share-link visitor's terminal: only panes of the workspace the link names, never resizing, typing only if allowed.
+  const g = url.pathname.match(/^\/share\/ws\/([\w-]+)\/term\/([\w-]+)$/);
+  if (g) {
+    const share = await getShare(g[1]);
+    const ok = share?.kind === 'workspace' && sharedPanes(share.ref)?.panes.some((p) => p.id === g[2]);
+    return wss.handleUpgrade(req, socket, head, (ws) => {
+      if (!share || !ok) return ws.close(4404, 'not found');
+      const set = guests.get(share.token) || guests.set(share.token, new Set()).get(share.token)!;
+      set.add(ws);
+      ws.on('close', () => set.delete(ws));
+      terms.attach(g[2], ws, { canType: () => share.canType });
+    });
+  }
   wss.handleUpgrade(req, socket, head, (ws) => {
     const m = url.pathname.match(/^\/ws\/term\/([\w-]+)$/);
     if (m) return terms.attach(m[1], ws);

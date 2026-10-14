@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
-import { LayoutGrid, Search, Sparkles } from 'lucide-react';
+import { LayoutGrid, Link2, Search, Sparkles } from 'lucide-react';
+import { shareLink } from '../lib/share';
 import { api, timeAgo, tildify } from '../lib/api';
 import { useStore } from '../lib/store';
 import type { SessionSummary } from '../lib/types';
@@ -22,6 +23,7 @@ export function Sessions() {
   const updatePane = useStore((s) => s.updatePane);
   const [list, setList] = useState<SessionSummary[]>([]);
   const [q, setQ] = useState('');
+  const [shareError, setShareError] = useState<string | null>(null);
 
   useEffect(() => {
     if (visible) api.get<SessionSummary[]>('/api/claude/sessions').then(setList).catch(() => {});
@@ -59,6 +61,8 @@ export function Sessions() {
           </div>
         </div>
 
+        {shareError && <div className="mt-4 rounded-xl bg-[#e5383b]/10 px-4 py-2.5 text-[13px] font-medium text-[#b42318]">{shareError}</div>}
+
         {groups.map(([label, items]) => (
           <section key={label} className="mt-8">
             <div className="mb-3 text-[12px] font-medium uppercase tracking-[0.08em] text-faint">{label}</div>
@@ -91,6 +95,16 @@ export function Sessions() {
                       title="Open as a new pane in the workspace you have open"
                     >
                       <LayoutGrid size={12} /> Add to current workspace
+                    </button>
+                    <button
+                      onClick={() => {
+                        setShareError(null);
+                        shareLink('session', s.sessionId).catch((e) => setShareError(String(e.message || e)));
+                      }}
+                      className="ml-auto flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[12px] font-medium text-muted hover:bg-white hover:text-ink"
+                      title="Copy a link to this conversation. Whoever opens it can continue it in their own Studio."
+                    >
+                      <Link2 size={12} /> Share link
                     </button>
                   </div>
                 </motion.div>

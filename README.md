@@ -13,6 +13,10 @@ Run `npm run build && npm start` for a single non-reloading server on :4600. In 
 
 With the server running, open http://127.0.0.1:4610 in Chrome and click the install icon at the right of the address bar (or ⋮ → Cast, save and share → Install page as app). It installs as **Studio CLI** with its own window and Dock icon. If the server isn't running, the app shows how to start it.
 
+## Sharing
+
+Everyone runs their own Studio on their own computer. To share, make a link: **Share link** on a conversation in Sessions, or the link icon on a workspace in the sidebar. The other person opens it from the Shared tab of their own Studio. Setup per person (own tunnel, own login) is in [docs/per-person-setup.md](docs/per-person-setup.md).
+
 ## Terminals
 
 Studio's zsh panes load your normal config through `~/.studio-cli/zsh` (each file sources yours first). If you're on the stock macOS prompt, they add a prompt in the pane's colour: folder, git branch (amber ● when dirty), a red ❯ plus exit code on failure, and the time on the right. Set `STUDIO_KEEP_PROMPT=1` to keep your own. Paper terminals are the default; switch to ink in Settings or ⌘K.

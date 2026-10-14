@@ -2,7 +2,8 @@ import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 
-export const DATA_DIR = path.join(os.homedir(), '.studio-cli');
+// STUDIO_DATA_DIR lets a second Studio run next to the real one (own ports, terminals and data) for testing.
+export const DATA_DIR = process.env.STUDIO_DATA_DIR || path.join(os.homedir(), '.studio-cli');
 
 export type Workflow = {
   id: string;
@@ -68,7 +69,7 @@ export const DEFAULT_WORKFLOWS: Workflow[] = [
   },
 ];
 
-async function readJson<T>(file: string, fallback: T): Promise<T> {
+export async function readJson<T>(file: string, fallback: T): Promise<T> {
   try {
     return JSON.parse(await fs.readFile(path.join(DATA_DIR, file), 'utf8'));
   } catch {
@@ -76,7 +77,7 @@ async function readJson<T>(file: string, fallback: T): Promise<T> {
   }
 }
 
-async function writeJson(file: string, value: unknown) {
+export async function writeJson(file: string, value: unknown) {
   await fs.mkdir(DATA_DIR, { recursive: true });
   await fs.writeFile(path.join(DATA_DIR, file), JSON.stringify(value, null, 2));
 }

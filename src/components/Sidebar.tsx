@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
-import { Bell, Check, GitBranch, Pencil, Plus, Settings2, X } from 'lucide-react';
+import { Bell, Check, GitBranch, Link2, Pencil, Plus, Settings2, X } from 'lucide-react';
+import { shareLink } from '../lib/share';
 import { useStore } from '../lib/store';
 import { panes } from '../lib/layout';
 import { basename } from '../lib/api';
@@ -202,6 +203,16 @@ function WorkspaceItem({ ws, index, active, ...dnd }: { ws: Workspace; index: nu
           </span>
         )}
         <span className="hidden items-center group-hover:flex [@media(hover:none)]:flex">
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              shareLink('workspace', ws.id).catch(() => {});
+            }}
+            className="grid h-5 w-5 place-items-center rounded-md text-faint hover:bg-black/5 hover:text-ink"
+            title="Copy a link to this workspace. Others can watch its terminals live."
+          >
+            <Link2 size={11} />
+          </button>
           <button
             onClick={(e) => {
               e.stopPropagation();

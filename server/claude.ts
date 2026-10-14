@@ -3,7 +3,8 @@ import { createReadStream } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 
-const CLAUDE_DIR = path.join(os.homedir(), '.claude');
+// STUDIO_CLAUDE_DIR points a test Studio at its own history, so tests never touch the real ~/.claude.
+const CLAUDE_DIR = process.env.STUDIO_CLAUDE_DIR || path.join(os.homedir(), '.claude');
 const PROJECTS = path.join(CLAUDE_DIR, 'projects');
 const SESSIONS = path.join(CLAUDE_DIR, 'sessions');
 
@@ -44,18 +45,7 @@ export const transcriptPath = (cwd: string, sessionId: string) =>
   path.join(PROJECTS, projectSlug(cwd), `${sessionId}.jsonl`);
 
 /** True if Claude saved a transcript for this session (an opened-but-unused session has none). */
-export async function transcriptExists(sessionId: string): Promise<boolean> {
-  if (!/^[\w-]+$/.test(sessionId)) return false;
-  try {
-    for (const d of await fs.readdir(PROJECTS)) {
-      try {
-        await fs.access(path.join(PROJECTS, d, `${sessionId}.jsonl`));
-        return true;
-      } catch {}
-    }
-  } catch {}
-  return false;
-}
+export const transcriptExists = async (sessionId: string) => !!(await findTranscript(sessionId));
 
 async function readTail(file: string, bytes: number): Promise<string> {
   const fh = await fs.open(file, 'r');
@@ -183,6 +173,40 @@ export type SessionSummary = {
   sizeKb: number;
 };
 
+/** Title and folder of a transcript, read from its first 96 KB. Null for sessions with no prompt yet. */
+async function summarize(file: string, mtime: number, size: number): Promise<SessionSummary | null> {
+  const head = await readHead(file, 96 * 1024);
+  let cwd = '';
+  let title = '';
+  let custom = '';
+  for (const line of head.split('\n')) {
+    let rec: any;
+    try {
+      rec = JSON.parse(line);
+    } catch {
+      continue;
+    }
+    if (rec.cwd && !cwd) cwd = rec.cwd;
+    if (rec.type === 'custom-title' && rec.customTitle) custom = rec.customTitle;
+    if (rec.type === 'summary' && rec.summary && !custom) custom = rec.summary;
+    if (!title && rec.type === 'user' && !rec.isMeta && !rec.isSidechain) {
+      const t = textOf(rec.message?.content);
+      const clean = t.replace(/<\/?[a-z_-]+[^>]*>/gi, ' ').replace(/\[Image #\d+\]/g, '').replace(/\s+/g, ' ').trim();
+      if (!isNoise(t) && clean) title = clean.slice(0, 140);
+    }
+    if (cwd && title) break;
+  }
+  if (!cwd || (!title && !custom)) return null;
+  return {
+    sessionId: path.basename(file, '.jsonl'),
+    cwd,
+    project: path.basename(cwd),
+    title: custom || title,
+    updatedAt: mtime,
+    sizeKb: Math.round(size / 1024),
+  };
+}
+
 export async function listSessions(limit = 60): Promise<SessionSummary[]> {
   let dirs: string[] = [];
   try {
@@ -207,38 +231,44 @@ export async function listSessions(limit = 60): Promise<SessionSummary[]> {
   const out: SessionSummary[] = [];
   for (const f of files) {
     if (out.length >= limit) break;
-    const head = await readHead(f.file, 96 * 1024);
-    let cwd = '';
-    let title = '';
-    let custom = '';
-    for (const line of head.split('\n')) {
-      let rec: any;
-      try {
-        rec = JSON.parse(line);
-      } catch {
-        continue;
-      }
-      if (rec.cwd && !cwd) cwd = rec.cwd;
-      if (rec.type === 'custom-title' && rec.customTitle) custom = rec.customTitle;
-      if (rec.type === 'summary' && rec.summary && !custom) custom = rec.summary;
-      if (!title && rec.type === 'user' && !rec.isMeta && !rec.isSidechain) {
-        const t = textOf(rec.message?.content);
-        const clean = t.replace(/<\/?[a-z_-]+[^>]*>/gi, ' ').replace(/\[Image #\d+\]/g, '').replace(/\s+/g, ' ').trim();
-        if (!isNoise(t) && clean) title = clean.slice(0, 140);
-      }
-      if (cwd && title) break;
-    }
-    if (!cwd || (!title && !custom)) continue;
-    out.push({
-      sessionId: path.basename(f.file, '.jsonl'),
-      cwd,
-      project: path.basename(cwd),
-      title: custom || title,
-      updatedAt: f.mtime,
-      sizeKb: Math.round(f.size / 1024),
-    });
+    const s = await summarize(f.file, f.mtime, f.size);
+    if (s) out.push(s);
   }
   return out;
+}
+
+/** The saved transcript for a session, if any. */
+export async function findTranscript(sessionId: string): Promise<string | null> {
+  if (!/^[\w-]+$/.test(sessionId)) return null;
+  try {
+    for (const d of await fs.readdir(PROJECTS)) {
+      const file = path.join(PROJECTS, d, `${sessionId}.jsonl`);
+      try {
+        await fs.access(file);
+        return file;
+      } catch {}
+    }
+  } catch {}
+  return null;
+}
+
+export async function sessionInfo(sessionId: string): Promise<(SessionSummary & { file: string }) | null> {
+  const file = await findTranscript(sessionId);
+  if (!file) return null;
+  const st = await fs.stat(file);
+  const sum = await summarize(file, st.mtimeMs, st.size);
+  return sum && { ...sum, file };
+}
+
+/** Saves a transcript someone shared into this Mac's Claude history so `claude --resume <id>` finds it in `cwd`. */
+export async function importTranscript(sessionId: string, cwd: string, transcript: string): Promise<boolean> {
+  if (!/^[\w-]+$/.test(sessionId)) throw new Error('Bad session id');
+  // Never overwrite a conversation you already have.
+  if (await findTranscript(sessionId)) return false;
+  const file = transcriptPath(cwd, sessionId);
+  await fs.mkdir(path.dirname(file), { recursive: true });
+  await fs.writeFile(file, transcript, { flag: 'wx' });
+  return true;
 }
 
 export type SlashCommand = { name: string; description: string; kind: 'command' | 'skill'; scope: 'user' | 'project' };

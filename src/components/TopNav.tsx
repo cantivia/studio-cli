@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion';
-import { Bell, Command, Gamepad2, History, LayoutGrid, Menu } from 'lucide-react';
+import { Bell, Command, Gamepad2, History, LayoutGrid, Link2, Menu } from 'lucide-react';
 import { useStore } from '../lib/store';
 import { useIsPhone } from '../lib/device';
 import type { Mode } from '../lib/types';
@@ -8,6 +8,7 @@ const TABS: { id: Mode; label: string; icon: typeof LayoutGrid }[] = [
   { id: 'workspaces', label: 'Workspaces', icon: LayoutGrid },
   { id: 'office', label: 'Agent View', icon: Gamepad2 },
   { id: 'sessions', label: 'Sessions', icon: History },
+  { id: 'shared', label: 'Shared', icon: Link2 },
 ];
 
 export function TopNav() {

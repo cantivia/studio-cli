@@ -11,6 +11,7 @@ import { TopNav } from './components/TopNav';
 import { WorkspaceView } from './components/WorkspaceView';
 import { officeName, PixelOffice } from './components/PixelOffice';
 import { Sessions } from './components/Sessions';
+import { Shared } from './components/Shared';
 import { NotificationPanel } from './components/NotificationPanel';
 import { CommandPalette } from './components/CommandPalette';
 import { NewWorkspaceDialog } from './components/NewWorkspaceDialog';
@@ -200,6 +201,9 @@ export default function App() {
           </View>
           <View show={mode === 'sessions'}>
             <Sessions />
+          </View>
+          <View show={mode === 'shared'}>
+            <Shared />
           </View>
         </div>
       </main>
