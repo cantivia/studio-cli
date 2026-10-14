@@ -4,7 +4,7 @@ Everyone runs **their own Studio on their own computer**: their own terminals, C
 and remote address. Nothing is shared between people except links they choose to make.
 
 - Your phone/iPad reaches *your* computer. A colleague's reach *theirs*.
-- Each person has their own address (e.g. `studio-ashkan.cantivia.com`) that only they can open.
+- Each person has their own address (e.g. `studio-you.company.com`) that only they can open.
 - To share, you make a link (see the bottom). They open it from their own Studio.
 
 ## Ways to get your own Studio
@@ -24,10 +24,10 @@ running in the background. `--dry-run` shows what it would do; it's safe to run 
 **3. `npm run invite` (optional, for whoever runs the company's Cloudflare).** Makes a teammate's address behind an email login and prints an invite code they paste into the app's "I have an invite code instead" link. Most people don't need this now that the app can set itself up:
 
 ```bash
-npm run invite -- --email feargal@cantivia.com
+npm run invite -- --email teammate@company.com
 ```
 
-It creates their tunnel (`studio-feargal`), address (`studio-feargal.cantivia.com`), an Access app that allows only them, and the
+It creates their tunnel (`studio-teammate`), address (`studio-teammate.company.com`), an Access app that allows only them, and the
 share-link app, and copies a `studio-invite:…` code to your clipboard. Send it to them privately: it contains their tunnel's secret.
 Running it again prints the same code. Nothing about your own Studio changes.
 

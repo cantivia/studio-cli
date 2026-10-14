@@ -1,6 +1,19 @@
 # Studio CLI
 
-A local, browser-based take on [cmux](https://github.com/manaflow-ai/cmux), styled after Cantivia: vertical workspaces, notification rings and Done ticks for coding agents, a Claude panel with workflows, and an agent view built on [Pixel Agents](https://github.com/pixel-agents-hq/pixel-agents).
+**Every terminal and Claude Code session, in one calm window. On your Mac, reachable from your phone.**
+
+[**Download for Mac**](https://studio-cli.cantivia.com) · free · macOS 12 or later · [Install guide](docs/INSTALL.md)
+
+![Studio CLI](site/shot.png)
+
+- **Workspaces** that tile themselves: a folder plus its terminals, Claude and a browser, colour-coded, with a ring and a ✓ Done when Claude finishes.
+- **Your Mac, from your phone or iPad.** Turn it on in one click, pair a phone with a QR code. No account.
+- **Share with a link.** Send a teammate a Claude conversation to continue in their own Claude, or let them watch a workspace live.
+- **Local first.** Everything runs on your computer; nothing you type is sent to us. Remote access is a private tunnel to your own address, and every device must be paired with a one-time code.
+
+A local take on [cmux](https://github.com/manaflow-ai/cmux), styled after Cantivia, with an agent view built on [Pixel Agents](https://github.com/pixel-agents-hq/pixel-agents) (see [CREDITS.md](CREDITS.md)). MIT licensed.
+
+## Run it from the code
 
 ```bash
 npm install
@@ -9,7 +22,7 @@ npm run dev        # http://127.0.0.1:4610  (API + terminals on :4600)
 
 Run `npm run build && npm start` for a single non-reloading server on :4600. In dev, editing `server/` restarts the server and its terminals. Claude panes come back on the same conversation.
 
-## Install as a Chrome app
+## Install as a Chrome app (when running from the code)
 
 With the server running, open http://127.0.0.1:4610 in Chrome and click the install icon at the right of the address bar (or ⋮ → Cast, save and share → Install page as app). It installs as **Studio CLI** with its own window and Dock icon. If the server isn't running, the app shows how to start it.
 

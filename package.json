@@ -1,7 +1,14 @@
 {
   "name": "studio-cli",
   "version": "0.1.0",
+  "description": "Terminals and Claude Code sessions in one calm window, on your Mac, reachable from your phone.",
   "private": true,
+  "license": "MIT",
+  "homepage": "https://studio-cli.cantivia.com",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/cantivia/studio-cli.git"
+  },
   "type": "module",
   "scripts": {
     "dev": "concurrently -k -n server,web -c magenta,cyan \"npm:dev:server\" \"npm:dev:web\"",

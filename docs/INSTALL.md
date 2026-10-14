@@ -4,7 +4,7 @@ Your own terminals, your own Claude, on your own computer. No code, no accounts,
 
 ## 1. Download
 
-Get **Studio CLI** from the download page (https://studio-cli.cantivia.com once it's live). It's one file that works on every Mac (Apple chip or Intel), macOS 12 or later.
+Get **Studio CLI** from the download page (https://studio-cli.cantivia.com) or the [latest release on GitHub](https://github.com/cantivia/studio-cli/releases/latest). It's one file, `Studio-CLI.dmg`, that works on every Mac (Apple chip or Intel), macOS 12 or later.
 
 ## 2. Install
 
