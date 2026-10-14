@@ -267,7 +267,7 @@ app.get(
 
 // Is Claude Code installed on this computer, and signed in? The Get started checklist and the new-workspace dialog use this.
 // STUDIO_CLAUDE_BIN points detection at one specific program (used by tests).
-let claudeStatus: { at: number; installed: boolean; loggedIn: boolean | null } | null = null;
+let claudeStatus: { at: number; installed: boolean; loggedIn: boolean | null; clt: boolean; brew: boolean } | null = null;
 const run = (cmd: string, args: string[], ms = 8000) =>
   new Promise<string>((resolve) => {
     const c = spawn(cmd, args, { stdio: ['ignore', 'pipe', 'ignore'] });
@@ -297,12 +297,24 @@ async function detectClaude() {
     return { installed: true, loggedIn: null };
   }
 }
+// Developer basics. `xcode-select -p` is used instead of running git: on a Mac without the Command Line Tools,
+// running git pops up macOS's installer. STUDIO_XCODE_SELECT / STUDIO_BREW point detection at stand-ins for tests.
+async function detectTools() {
+  const xs = process.env.STUDIO_XCODE_SELECT || '/usr/bin/xcode-select';
+  const clt = await new Promise<boolean>((resolve) => {
+    const c = spawn(xs, ['-p'], { stdio: 'ignore' });
+    c.on('close', (code) => resolve(code === 0));
+    c.on('error', () => resolve(false));
+  });
+  const brew = [process.env.STUDIO_BREW || '', '/opt/homebrew/bin/brew', '/usr/local/bin/brew'].filter(Boolean).some((p) => fs.existsSync(p));
+  return { clt, brew: process.env.STUDIO_BREW ? fs.existsSync(process.env.STUDIO_BREW) : brew };
+}
 app.get(
   '/api/doctor',
   wrap(async (_req, res) => {
-    if (!claudeStatus || Date.now() - claudeStatus.at > 3_000) claudeStatus = { at: Date.now(), ...(await detectClaude()) };
+    if (!claudeStatus || Date.now() - claudeStatus.at > 3_000) claudeStatus = { at: Date.now(), ...(await detectClaude()), ...(await detectTools()) };
     // `claude` kept for the new-workspace dialog; the email is deliberately not exposed.
-    res.json({ claude: claudeStatus.installed, installed: claudeStatus.installed, loggedIn: claudeStatus.loggedIn });
+    res.json({ claude: claudeStatus.installed, installed: claudeStatus.installed, loggedIn: claudeStatus.loggedIn, clt: claudeStatus.clt, brew: claudeStatus.brew });
   }),
 );
 

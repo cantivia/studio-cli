@@ -32,16 +32,18 @@ Install the DMG on a spare Mac (or a second user account). Open it, Settings →
 
 ## 4. Move *yourself* onto the app (your terminals keep running)
 
-You currently run Studio from the code at `studio-cli.cantivia.com` behind Cloudflare Access. Switching to the app was tested: the app picks up your running terminals, with their history, because they live in a separate background process.
+You currently run Studio from the code at `studio-cli.cantivia.com` behind Cloudflare Access. One command moves you over:
 
-1. Install the DMG and quit nothing yet.
-2. Stop `npm run dev` (Ctrl-C). Your terminals and Claude sessions **keep running**.
-3. Turn off the old tunnel: `launchctl bootout gui/$(id -u)/com.studio-cli.tunnel && rm ~/Library/LaunchAgents/com.studio-cli.tunnel.plist`
-4. Move the old settings aside: `mkdir ~/.studio-cli/old-remote && mv ~/.studio-cli/remote.json ~/.studio-cli/tunnel-token ~/.studio-cli/old-remote/`
-5. Open **Studio CLI**. It's your same Studio: same workspaces, same terminals. Settings → Phone & remote access → Turn on → pair your iPad and phone.
+```bash
+npm run switch-to-app -- --dry-run     # shows exactly what it will do, changes nothing
+npm run switch-to-app
+```
 
-Your iPad will have a new address (shown in that dialog); the old `studio-cli.cantivia.com` bookmark stops working at step 5 below.
-*Undo:* quit the app, move the two files back, `npm run dev`, and re-load the LaunchAgent (`launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.studio-cli.tunnel.plist`).
+It checks the app is installed and notes your running terminals; stops the dev servers (only processes that really are Studio); turns off the old tunnel and moves its files to `~/.studio-cli/old-remote/` (moved, never deleted); opens the app; and **checks every one of your terminals is in the app**, stopping with a clear message if not. Your workspaces, Claude history and shell setup are shared by both, so nothing is copied or lost. Rehearsed in a sandbox with running terminals, a Vite server and an unrelated program on another port.
+
+Afterwards: in the app, Settings → Phone & remote access → Turn on phone access, and pair your iPad and phone. The old "Studio CLI" Chrome app pointed at the code version, so remove it (chrome://apps).
+
+*Undo:* `npm run switch-to-app -- --undo` closes the app and puts the old tunnel files back; then `npm run dev`.
 
 ## 5. Put the website on `studio-cli.cantivia.com`
 

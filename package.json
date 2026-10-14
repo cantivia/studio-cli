@@ -14,7 +14,8 @@
     "setup": "node scripts/setup.mjs",
     "invite": "node scripts/invite.mjs",
     "app": "node scripts/build-app.mjs",
-    "app:dir": "node scripts/build-app.mjs --dir"
+    "app:dir": "node scripts/build-app.mjs --dir",
+    "switch-to-app": "node scripts/switch-to-app.mjs"
   },
   "dependencies": {
     "@xterm/addon-fit": "^0.11.0",

@@ -154,6 +154,13 @@ class PtyHost {
   }
 }
 
+/** The language setting a shell should start with: the system locale like Terminal.app, never the bare "C" locale. */
+function systemLang(current?: string) {
+  if (process.env.STUDIO_LOCALE) return `${process.env.STUDIO_LOCALE}.UTF-8`;
+  if (current && /UTF-?8/i.test(current) && !/^C(\.|$)/.test(current)) return current;
+  return 'en_US.UTF-8';
+}
+
 function startHost() {
   fs.mkdirSync(DATA_DIR, { recursive: true });
   const log = fs.openSync(path.join(DATA_DIR, 'pty-host.log'), 'a');
@@ -240,7 +247,9 @@ export class TerminalManager extends EventEmitter {
   async create(opts: { cwd?: string; command?: string | null; cols?: number; rows?: number; accent?: string; theme?: string }): Promise<TermInfo> {
     const id = randomUUID().slice(0, 8);
     const cwd = opts.cwd || os.homedir();
-    const shell = process.env.SHELL || '/bin/zsh';
+    // Like Terminal.app: your login shell from the system, not whatever $SHELL happens to be (an app opened from the
+    // Dock has none).
+    const shell = os.userInfo().shell || process.env.SHELL || '/bin/zsh';
     // A command runs inside a login shell so PATH, nvm, etc. match a normal
     // terminal; when it exits the user lands back in that shell.
     const args = opts.command ? ['-l', '-i', '-c', `${opts.command}; exec ${shell} -l`] : ['-l'];
@@ -253,7 +262,7 @@ export class TerminalManager extends EventEmitter {
           !/^(CLAUDECODE|CLAUDE_CODE_|CLAUDE_PID$|CLAUDE_EFFORT$)/.test(k) &&
           // The Mac app starts the server with its own settings; they must not leak into your shells
           // (NODE_ENV=production or PORT=4600 would break every dev server you start there).
-          !/^(ELECTRON_RUN_AS_NODE|NODE_ENV|PORT|STUDIO_(BUNDLED|ROOT|MANAGE_TUNNEL|CLOUDFLARED|PORT))$/.test(k),
+          !/^(ELECTRON_RUN_AS_NODE|NODE_ENV|PORT|STUDIO_(BUNDLED|ROOT|MANAGE_TUNNEL|CLOUDFLARED|PORT|LOCALE))$/.test(k),
       ),
     );
     const cols = opts.cols || 100;
@@ -288,6 +297,9 @@ export class TerminalManager extends EventEmitter {
       env: {
         ...env,
         ...shellEnv(shell, opts.accent, opts.theme),
+        // Terminal.app sets these too: the shell program, and the language (an app opened from the Dock inherits none).
+        SHELL: shell,
+        LANG: systemLang(env.LANG),
         TERM: 'xterm-256color',
         COLORTERM: 'truecolor',
         TERM_PROGRAM: 'studio-cli',

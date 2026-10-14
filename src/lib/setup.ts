@@ -8,6 +8,14 @@ function runInSetupWorkspace(command: string) {
   if (ws.root.type === 'pane') useStore.getState().updatePane(ws.root.pane.id, (p) => ({ ...p, command }));
 }
 
+/** macOS's Command Line Tools (git, compilers): opens Apple's installer window. */
+export const installCommandLineTools = () =>
+  runInSetupWorkspace('xcode-select --install; echo; echo "Finish the installer window that opened, then go back to Studio."');
+
+/** Homebrew's official installer (asks for your Mac password once). */
+export const installHomebrew = () =>
+  runInSetupWorkspace('/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"; echo; echo "Done. Close this workspace and go back to Studio."');
+
 /** Claude Code's own installer, run in a Studio terminal so the person can watch it. */
 export const INSTALL_CLAUDE = 'curl -fsSL https://claude.ai/install.sh | bash';
 export const installClaude = () =>

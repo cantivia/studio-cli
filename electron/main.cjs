@@ -37,6 +37,15 @@ async function portInUse() {
   return !!(await get('/api/state'));
 }
 
+// The language Terminal.app would give a shell (e.g. en_IE). An app opened from the Dock inherits no LANG at all.
+function systemLocale() {
+  try {
+    const l = require('node:child_process').execFileSync('defaults', ['read', '-g', 'AppleLocale'], { encoding: 'utf8' }).trim();
+    if (/^[a-z]{2,3}(_[A-Za-z0-9]+)?$/.test(l)) return l;
+  } catch {}
+  return app.getLocale().replace('-', '_');
+}
+
 function startServer() {
   const cloudflared = path.join(process.resourcesPath || '', 'cloudflared');
   server = spawn(process.execPath, [path.join(APP_DIR, 'server.mjs')], {
@@ -48,6 +57,7 @@ function startServer() {
       STUDIO_BUNDLED: '1',
       STUDIO_ROOT: APP_DIR,
       STUDIO_MANAGE_TUNNEL: '1',
+      STUDIO_LOCALE: systemLocale(),
       ...(fs.existsSync(cloudflared) ? { STUDIO_CLOUDFLARED: cloudflared } : {}),
     },
     stdio: ['ignore', 'pipe', 'pipe'],
@@ -60,7 +70,7 @@ function startServer() {
   server.on('exit', (code) => {
     server = null;
     if (!quitting) {
-      dialog.showErrorBox('Studio stopped', `The Studio server stopped unexpectedly (code ${code}). Details are in ${path.join(dataDir, 'app-server.log')}.`);
+      fail('Studio stopped', `The Studio server stopped unexpectedly (code ${code}). Details are in ${path.join(dataDir, 'app-server.log')}.`);
       app.quit();
     }
   });
@@ -171,6 +181,12 @@ async function askAboutLogin() {
   buildMenu();
 }
 
+// Errors normally show a dialog; in hidden (test) mode nothing may appear on screen, so they go to the log instead.
+const fail = (title, message) => {
+  if (HIDDEN) console.error(`${title}: ${message}`);
+  else dialog.showErrorBox(title, message);
+};
+
 if (!app.requestSingleInstanceLock()) app.quit();
 else {
   app.on('second-instance', show);
@@ -185,12 +201,12 @@ else {
     if (HIDDEN) app.dock?.hide();
     buildMenu();
     if (await portInUse()) {
-      dialog.showErrorBox('Studio is already running', `Something is already serving Studio on port ${PORT} on this computer, so this app can't start another. Quit the other one first.`);
+      fail('Studio is already running', `Something is already serving Studio on port ${PORT} on this computer, so this app can't start another. Quit the other one first.`);
       return app.quit();
     }
     startServer();
     if (!(await waitForServer())) {
-      dialog.showErrorBox('Studio didn’t start', 'The Studio server didn’t come up in time. Try opening the app again.');
+      fail('Studio didn’t start', 'The Studio server didn’t come up in time. Try opening the app again.');
       return app.quit();
     }
     createWindow();

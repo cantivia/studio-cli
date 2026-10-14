@@ -43,6 +43,10 @@ Each phone is paired once. Codes work one time and expire after five minutes. Yo
 
 Your computer has to be on and awake. Studio keeps it from idle-sleeping while phone access is on. It can't stay reachable with the lid closed on battery.
 
+## Is the terminal the same as Terminal.app?
+
+Yes, for what matters. Studio starts your own login shell (the one macOS has on record for you) and loads your own `.zshrc`/`.zprofile`, exactly as Terminal does, so you get the same `PATH`, Homebrew, Node/nvm, Python, aliases, prompt tools and everything else you've installed. Studio only swaps the prompt if you're still on macOS's plain default. A few honest differences: it's a web terminal, so inline images (iTerm-style) aren't shown, and ⌘T/⌘W/⌘N are Studio's own keys (⌥⌘T new terminal, ⌥⌘N new workspace) rather than tabs and windows.
+
 ## Sharing with a teammate
 
 - **Sessions tab → Share link** on a conversation, or the **link icon** on a workspace in the sidebar. The link is copied.

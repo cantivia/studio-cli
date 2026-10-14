@@ -4,7 +4,7 @@ import { Check, Globe, LayoutGrid, Plus, Sparkles, SquareTerminal, Wand2 } from 
 import { useStore } from '../lib/store';
 import { findPane, panes } from '../lib/layout';
 import { api, uid } from '../lib/api';
-import { installClaude, signInToClaude } from '../lib/setup';
+import { installClaude, installCommandLineTools, installHomebrew, signInToClaude } from '../lib/setup';
 import type { LayoutNode, Pane, Workspace } from '../lib/types';
 import { TerminalView } from './TerminalView';
 import { BrowserView } from './BrowserView';
@@ -250,7 +250,7 @@ function ClaudePanelToggle({ ws, btn }: { ws: Workspace; btn: string }) {
   );
 }
 
-type Doctor = { installed: boolean; loggedIn: boolean | null };
+type Doctor = { installed: boolean; loggedIn: boolean | null; clt?: boolean; brew?: boolean };
 
 /** First run: a short checklist that gets Claude installed and signed in, a first workspace open, and (optionally) the phone connected. */
 function EmptyState() {
@@ -276,6 +276,13 @@ function EmptyState() {
     doc?.installed && !signedIn
       ? { done: false, title: 'Sign in to Claude', hint: 'A browser tab opens to approve it. Then come back here.', action: { label: 'Sign in', run: signInToClaude, primary: true } }
       : { done: signedIn, title: 'Sign in to Claude', hint: signedIn ? 'Signed in. Your Claude history stays on this computer.' : doc ? 'Install Claude Code first.' : 'Checking…' },
+    // Developer basics only show up when something's missing.
+    ...(doc && doc.clt === false
+      ? [{ done: false, title: 'Install the Command Line Tools', hint: 'Apple’s developer basics (git and friends). A macOS window opens to finish it.', action: { label: 'Install', run: installCommandLineTools } } as Step]
+      : []),
+    ...(doc && doc.clt && doc.brew === false
+      ? [{ done: false, optional: true, title: 'Homebrew', hint: 'The usual way to install other tools. It asks for your Mac password once.', action: { label: 'Install', run: installHomebrew } } as Step]
+      : []),
     { done: false, title: 'Open your first workspace', hint: 'Pick a folder, then a shell, Claude, or both side by side.', action: { label: 'New workspace', run: () => set({ newWorkspaceOpen: true }), primary: !!doc?.installed && signedIn } },
     ...(managed ? [{ done: false, optional: true, title: 'Use it from your phone', hint: 'Optional. Pair your phone or iPad with a QR code. No account needed.', action: { label: 'Set up', run: () => set({ remoteOpen: true }) } } as Step] : []),
   ];
