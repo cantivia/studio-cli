@@ -22,6 +22,8 @@ export function Shared() {
   const home = useStore((s) => s.home);
   const [links, setLinks] = useState<Share[]>([]);
   const [remote, setRemote] = useState(true);
+  const [managed, setManaged] = useState(false);
+  const set = useStore((s) => s.set);
   const [paste, setPaste] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState<string | null>(null);
@@ -34,8 +36,8 @@ export function Shared() {
   const load = useCallback(
     () =>
       api
-        .get<{ remote: boolean; links: Share[] }>('/api/shares')
-        .then((r) => (setLinks(r.links), setRemote(r.remote)))
+        .get<{ remote: boolean; managed: boolean; links: Share[] }>('/api/shares')
+        .then((r) => (setLinks(r.links), setRemote(r.remote), setManaged(r.managed)))
         .catch(() => {}),
     [],
   );
@@ -113,8 +115,21 @@ export function Shared() {
         {error && <div className="mt-4 rounded-xl bg-[#e5383b]/10 px-4 py-2.5 text-[13px] font-medium text-[#b42318]">{error}</div>}
         {!remote && (
           <div className="mt-4 rounded-xl bg-[#f59e0b]/10 px-4 py-3 text-[13px] leading-relaxed text-[#92400e]">
-            <b>Links only work on this computer for now.</b> To let other people open them, run <code className="rounded bg-white/70 px-1.5 py-0.5 font-mono text-[12px]">npm run setup</code> in the
-            Studio folder (takes a couple of minutes), which gives you your own secure address.
+            <b>Links only work on this computer for now.</b>{' '}
+            {managed ? (
+              <>
+                To let other people open them,{' '}
+                <button onClick={() => set({ remoteOpen: true })} className="font-semibold underline underline-offset-2">
+                  connect your phone &amp; remote access
+                </button>{' '}
+                with the invite code you were sent.
+              </>
+            ) : (
+              <>
+                To let other people open them, run <code className="rounded bg-white/70 px-1.5 py-0.5 font-mono text-[12px]">npm run setup</code> in the Studio folder (takes a couple of minutes), which gives you your own secure
+                address.
+              </>
+            )}
           </div>
         )}
 

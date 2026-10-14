@@ -155,12 +155,18 @@ class PtyHost {
 }
 
 function startHost() {
+  fs.mkdirSync(DATA_DIR, { recursive: true });
   const log = fs.openSync(path.join(DATA_DIR, 'pty-host.log'), 'a');
-  const script = fileURLToPath(new URL('./pty-host.ts', import.meta.url));
+  // In the Mac app the server is bundled (see scripts/build-app.mjs) and runs on Electron's own Node,
+  // so the host is the bundled pty-host.mjs next to it instead of the .ts file run through tsx.
+  const bundled = process.env.STUDIO_BUNDLED === '1';
+  const script = fileURLToPath(new URL(bundled ? './pty-host.mjs' : './pty-host.ts', import.meta.url));
+  const args = bundled ? [script, '--serve', HOST_SOCK] : ['--import', import.meta.resolve('tsx'), script, '--serve', HOST_SOCK];
   // Detached into its own session so a server restart (tsx watch) doesn't take it down.
-  spawn(process.execPath, ['--import', import.meta.resolve('tsx'), script, '--serve', HOST_SOCK], {
+  spawn(process.execPath, args, {
     detached: true,
     stdio: ['ignore', log, log],
+    env: bundled ? { ...process.env, ELECTRON_RUN_AS_NODE: '1' } : process.env,
   }).unref();
 }
 
@@ -242,7 +248,13 @@ export class TerminalManager extends EventEmitter {
     // would make every Claude in a pane think it is a child session (no
     // transcript, no ~/.claude/sessions entry), which blinds status tracking.
     const env = Object.fromEntries(
-      Object.entries(process.env).filter(([k]) => !/^(CLAUDECODE|CLAUDE_CODE_|CLAUDE_PID$|CLAUDE_EFFORT$)/.test(k)),
+      Object.entries(process.env).filter(
+        ([k]) =>
+          !/^(CLAUDECODE|CLAUDE_CODE_|CLAUDE_PID$|CLAUDE_EFFORT$)/.test(k) &&
+          // The Mac app starts the server with its own settings; they must not leak into your shells
+          // (NODE_ENV=production or PORT=4600 would break every dev server you start there).
+          !/^(ELECTRON_RUN_AS_NODE|NODE_ENV|PORT|STUDIO_(BUNDLED|ROOT|MANAGE_TUNNEL|CLOUDFLARED|PORT))$/.test(k),
+      ),
     );
     const cols = opts.cols || 100;
     const rows = opts.rows || 30;

@@ -21,6 +21,7 @@ import path from 'node:path';
 import readline from 'node:readline';
 import { execFileSync, spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
+import { createCloudflare, TOKEN_HELP } from './lib/cloudflare.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const DATA = process.env.STUDIO_DATA_DIR || path.join(os.homedir(), '.studio-cli');
@@ -73,31 +74,7 @@ const die = (msg) => {
 };
 
 // ── Cloudflare API ──────────────────────────────────────────────────────────
-let TOKEN = '';
-async function cf(method, route, body) {
-  if (DRY && method !== 'GET') {
-    console.log(`  ${dim(`[dry run] ${method} ${route}`)}${body ? dim(' ' + JSON.stringify(body).slice(0, 140)) : ''}`);
-    return { id: 'dry-run-id', aud: 'dry-run-aud', token: 'dry-run-token' };
-  }
-  let r;
-  try {
-    r = await fetch(API + route, {
-      method,
-      headers: { authorization: `Bearer ${TOKEN}`, 'content-type': 'application/json' },
-      body: body ? JSON.stringify(body) : undefined,
-    });
-  } catch (e) {
-    die(`Couldn't reach Cloudflare (${e.message}). Check your internet connection.`);
-  }
-  const j = await r.json().catch(() => null);
-  if (!j?.success) {
-    const m = j?.errors?.map((e) => e.message).join('; ') || `${r.status} ${r.statusText}`;
-    const hint = /auth|permission|forbidden|unauthori/i.test(m) ? '\n    The token is missing a permission. Re-create it using the list shown above.' : '';
-    die(`Cloudflare said no: ${m} (${method} ${route})${hint}`);
-  }
-  return j.result;
-}
-
+let CF;
 const portBusy = () =>
   new Promise((res) => {
     const s = net.connect(PORT, '127.0.0.1');
@@ -138,94 +115,59 @@ done(email);
 if (update) note(`Remote access is already set up at ${existing.host}. I'll lock it to just you and add share links; nothing else changes.`);
 
 step('2. Cloudflare access');
-console.log(`  I need a Cloudflare API token, used once and never saved. Make one at:
-    ${bold('https://dash.cloudflare.com/profile/api-tokens')} → Create Token → Create Custom Token, with these permissions:
-      • Account · Cloudflare Tunnel · Edit
-      • Account · Access: Apps and Policies · Edit
-      • Account · Access: Organizations, Identity Providers, and Groups · Read
-      • Account · Account Settings · Read
-      • Zone · DNS · Edit`);
+console.log(TOKEN_HELP);
+let TOKEN;
 TOKEN = opt('token') || process.env.CLOUDFLARE_API_TOKEN || '';
 if (!TOKEN) TOKEN = await askSecret('Paste the token');
 if (!TOKEN) die('No token given.');
-const accounts = await cf('GET', '/accounts?per_page=50');
-if (!accounts.length) die('That token can’t see any Cloudflare account.');
-let account = accounts[0];
-if (accounts.length > 1) {
+CF = createCloudflare({ token: TOKEN, api: API, dry: DRY, die, say: (m) => console.log(`  ${dim(m)}`) });
+const { cf } = CF;
+const account = await CF.pickAccount(async (accounts) => {
   accounts.forEach((a, i) => console.log(`    ${i + 1}. ${a.name}`));
-  account = accounts[Number(await ask('Which account is your company’s', '1')) - 1] || accounts[0];
-}
+  return accounts[Number(await ask('Which account is your company’s', '1')) - 1] || accounts[0];
+});
 const A = `/accounts/${account.id}`;
-const org = await cf('GET', `${A}/access/organizations`).catch(() => null);
-const team = org?.auth_domain || existing?.team;
+const team = (await CF.teamDomain(A)) || existing?.team;
 if (!team) die('Cloudflare Zero Trust isn’t set up on this account yet. Open https://one.dash.cloudflare.com once, pick a team name (free plan is fine), then run this again.');
 done(`${account.name} · ${team}`);
 
-// What Cloudflare returns for an app includes read-only fields it won't accept back on an update.
-const writable = ({ id, uid, aud, created_at, updated_at, ...rest }) => rest;
-const policyFor = (include, label) => [{ name: label, decision: 'allow', include, precedence: 1 }];
-const emailRule = [{ email: { email } }];
-const domainRule = [{ email_domain: { domain: mailDomain } }];
-
-/** Finds or creates an Access app by its exact domain, always (re)setting who may enter. */
-async function ensureApp(appName, domain, include, label) {
-  const apps = (await cf('GET', `${A}/access/apps?per_page=100`)) || [];
-  const hit = apps.find((a) => a.domain === domain);
-  const body = { name: appName, domain, type: 'self_hosted', session_duration: '168h', policies: policyFor(include, label) };
-  if (hit) return { ...(await cf('PUT', `${A}/access/apps/${hit.id}`, { ...writable(hit), ...body })), aud: hit.aud, reused: true };
-  return cf('POST', `${A}/access/apps`, body);
-}
-
 let host = existing?.host;
 let aud = existing?.aud;
+let shareAud;
 let tunnelToken = '';
 
-if (!update) {
+if (update) {
+  step('3. Lock it to you');
+  const apps = (await cf('GET', `${A}/access/apps?per_page=100`)) || [];
+  const hit = apps.find((a) => a.aud === existing.aud) || apps.find((a) => a.domain === existing.host);
+  if (!hit) die(`I couldn't find the Cloudflare Access app for ${existing.host}. Open Zero Trust → Access → Applications and check it exists.`);
+  await cf('PUT', `${A}/access/apps/${hit.id}`, { ...CF.writable(hit), policies: CF.policyFor([{ email: { email } }], `Only ${email}`) });
+  aud = hit.aud;
+  done(`Only ${email} can open ${host}`);
+  step('4. Share links');
+  const share = await CF.ensureApp(A, { name: `Studio CLI share links (${name})`, domain: `${host}/share/*`, include: [{ email_domain: { domain: mailDomain } }], label: `Anyone at @${mailDomain}` });
+  shareAud = share.aud;
+  done(`Colleagues at @${mailDomain} can open links you make (and nothing else)`);
+} else {
   step('3. Your address');
   const domainGuess = mailDomain.includes('.') ? mailDomain : 'example.com';
   host = (opt('host') || process.env.STUDIO_HOST || (await ask('Address to use', `studio-${name}.${domainGuess}`))).toLowerCase();
   if (!/^[a-z0-9.-]+\.[a-z]{2,}$/.test(host)) die('That doesn’t look like a web address.');
-  // The zone is the part of the address Cloudflare manages (e.g. company.com).
-  let zone = null;
-  for (let parts = host.split('.'); parts.length >= 2 && !zone; parts = parts.slice(1)) {
-    zone = (await cf('GET', `/zones?name=${parts.join('.')}&account.id=${account.id}`))?.[0] || null;
-  }
+  const zone = await CF.findZone(account, host);
   if (!zone) die(`${host} isn’t on this Cloudflare account. Pick an address under a domain you manage there.`);
   done(host);
 
   step('4. Tunnel to this computer');
-  const tName = `studio-${name}`;
-  const tunnels = (await cf('GET', `${A}/cfd_tunnel?name=${tName}&is_deleted=false`)) || [];
-  const tunnel = tunnels[0] || (await cf('POST', `${A}/cfd_tunnel`, { name: tName, config_src: 'cloudflare' }));
-  await cf('PUT', `${A}/cfd_tunnel/${tunnel.id}/configurations`, {
-    config: { ingress: [{ hostname: host, service: `http://127.0.0.1:${PORT}` }, { service: 'http_status:404' }] },
-  });
-  tunnelToken = await cf('GET', `${A}/cfd_tunnel/${tunnel.id}/token`);
-  const dns = (await cf('GET', `/zones/${zone.id}/dns_records?name=${host}`)) || [];
-  const record = { type: 'CNAME', name: host, content: `${tunnel.id}.cfargotunnel.com`, proxied: true };
-  if (dns[0]) await cf('PUT', `/zones/${zone.id}/dns_records/${dns[0].id}`, record);
-  else await cf('POST', `/zones/${zone.id}/dns_records`, record);
-  done(`${tName} → ${host}`);
+  tunnelToken = await CF.provisionTunnel(A, { name: `studio-${name}`, host, zone, port: PORT });
+  done(`studio-${name} → ${host}`);
+
+  step('5. Lock it to you, and open share links to your company');
+  ({ aud, shareAud } = await CF.provisionAccess(A, { name, host, email, mailDomain }));
+  done(`Only ${email} can open ${host}; colleagues at @${mailDomain} can open links you make (and nothing else)`);
 }
 
-step(update ? '3. Lock it to you' : '5. Lock it to you');
-const main = update
-  ? await (async () => {
-      const apps = (await cf('GET', `${A}/access/apps?per_page=100`)) || [];
-      const hit = apps.find((a) => a.aud === existing.aud) || apps.find((a) => a.domain === existing.host);
-      if (!hit) die(`I couldn't find the Cloudflare Access app for ${existing.host}. Open Zero Trust → Access → Applications and check it exists.`);
-      return { ...(await cf('PUT', `${A}/access/apps/${hit.id}`, { ...writable(hit), policies: policyFor(emailRule, `Only ${email}`) })), aud: hit.aud };
-    })()
-  : await ensureApp(`Studio CLI (${name})`, host, emailRule, `Only ${email}`);
-aud = main.aud || aud;
-done(`Only ${email} can open ${host}`);
-
-step(update ? '4. Share links' : '6. Share links');
-const share = await ensureApp(`Studio CLI share links (${name})`, `${host}/share/*`, domainRule, `Anyone at @${mailDomain}`);
-done(`Colleagues at @${mailDomain} can open links you make (and nothing else)`);
-
-step(update ? '5. Save settings' : '7. Save settings');
-const remote = { host, team, aud, allow: [email], shareAud: share.aud, shareAllow: [`@${mailDomain}`] };
+step(update ? '5. Save settings' : '6. Save settings');
+const remote = { host, team, aud, allow: [email], shareAud, shareAllow: [`@${mailDomain}`] };
 if (!DRY) {
   fs.mkdirSync(DATA, { recursive: true });
   const file = path.join(DATA, 'remote.json');
@@ -256,7 +198,7 @@ function load(label, file) {
 
 let serverNote = '';
 if (!update && !flag('no-service') && process.platform === 'darwin') {
-  step('8. Keep it running');
+  step('7. Keep it running');
   let cloudflared = spawnSync('which', ['cloudflared'], { encoding: 'utf8' }).stdout.trim();
   if (!cloudflared && !DRY && !flag('no-install')) {
     if (spawnSync('which', ['brew']).status === 0 && (await confirm('cloudflared (the tunnel program) isn’t installed. Install it with Homebrew?'))) {

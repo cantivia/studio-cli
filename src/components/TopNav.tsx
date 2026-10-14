@@ -21,7 +21,7 @@ export function TopNav() {
 
   return (
     <header
-      className={`drag relative z-20 grid shrink-0 grid-cols-[1fr_auto_1fr] items-center ${phone ? 'h-[52px] px-3' : 'h-[60px] px-5'}`}
+      className={`drag relative z-20 grid shrink-0 grid-cols-[1fr_auto_1fr] items-center ${phone ? 'h-[52px] px-3' : 'h-[60px] px-5 pt-3'}`}
     >
       <div className="flex min-w-0 items-center gap-2 text-[12px] font-medium text-muted">
         {phone ? (

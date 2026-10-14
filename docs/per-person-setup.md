@@ -7,35 +7,50 @@ and remote address. Nothing is shared between people except links they choose to
 - Each person has their own address (e.g. `studio-ashkan.cantivia.com`) that only they can open.
 - To share, you make a link (see the bottom). They open it from their own Studio.
 
-## Set up (about 3 minutes)
+## Three ways to get your own Studio
+
+**1. The Mac app (for teammates, easiest).** They download the DMG, drag it to Applications, open it, and paste an invite code.
+Nothing else: no repo, no Cloudflare account. See [INSTALL.md](INSTALL.md). You make their invite (below).
+
+**2. `npm run setup` (developers running Studio from the code).** Gives *your own* computer a secure address in about 3 minutes:
 
 ```bash
-git clone https://github.com/cantivia/studio-cli.git
-cd studio-cli
-npm install
-npm run setup
+git clone https://github.com/cantivia/studio-cli.git && cd studio-cli && npm install && npm run setup
 ```
 
-`npm run setup` asks two things (your work email and a Cloudflare token) and does the rest:
+It asks for your work email and a Cloudflare token, then creates a private tunnel and address (`studio-<you>.<company domain>`),
+locks it to **only your email**, adds the share-link rule for your company, saves the settings, and keeps Studio and the tunnel
+running in the background. `--dry-run` shows what it would do; it's safe to run again.
 
-1. creates a private tunnel from the internet to this computer, and your own address (`studio-<you>.<company domain>`),
-2. locks that address to **only your email** (you sign in with an emailed code),
-3. adds a second rule so colleagues can open the **share links** you make, and nothing else,
-4. saves the settings and keeps Studio and the tunnel running in the background, starting at login.
+**3. `npm run invite` (for whoever runs the company's Cloudflare).** Makes a teammate's address and prints their invite code:
 
-Then open the address it prints on your phone, sign in with your email, and you're in your own Studio.
+```bash
+npm run invite -- --email feargal@cantivia.com
+```
 
-**The Cloudflare token** (used once, never saved): https://dash.cloudflare.com/profile/api-tokens → Create Token →
-Create Custom Token, with *Account · Cloudflare Tunnel · Edit*, *Account · Access: Apps and Policies · Edit*,
-*Account · Access: Organizations, Identity Providers, and Groups · Read*, *Account · Account Settings · Read*,
-*Zone · DNS · Edit*. The setup prints this list too. Delete the token afterwards if you like.
+It creates their tunnel (`studio-feargal`), address (`studio-feargal.cantivia.com`), an Access app that allows only them, and the
+share-link app, and copies a `studio-invite:…` code to your clipboard. Send it to them privately: it contains their tunnel's secret.
+Running it again prints the same code. Nothing about your own Studio changes.
+
+**The Cloudflare token** (used once, never saved), for `setup` and `invite`: https://dash.cloudflare.com/profile/api-tokens →
+Create Token → Create Custom Token, with *Account · Cloudflare Tunnel · Edit*, *Account · Access: Apps and Policies · Edit*,
+*Account · Access: Organizations, Identity Providers, and Groups · Read*, *Account · Account Settings · Read*, *Zone · DNS · Edit*.
+Delete it afterwards if you like.
 
 Good to know:
-- The setup is safe to run again. It reuses what exists instead of making copies. `npm run setup -- --dry-run` shows what it
-  would do without changing anything. `--no-service` skips the background services.
-- Your computer has to be on and awake. Studio keeps it from idle-sleeping while it runs (a Mac with the lid shut on battery still sleeps).
+- Your computer has to be on and awake. The Mac app and `setup` both keep it from idle-sleeping while connected (a Mac with the lid shut on battery still sleeps).
 - Studio checks the login itself as well as Cloudflare (`server/access.ts`), so a request from outside without a valid
   token for the right rule gets a 403. The share-link login works only on `/share/…` pages, never on terminals or the API.
+
+## Building the Mac app
+
+`npm run app` makes both installers (Apple chip and Intel) in `release/out` (about 150 MB each, about two minutes).
+`npm run app:dir` builds just the `.app` for testing. Give people the DMG any way you like (a shared drive, or a GitHub release:
+`gh release create v0.1.0 release/out/*.dmg`).
+
+**Signing.** Unsigned apps make macOS show the one-time "Open Anyway" step in [INSTALL.md](INSTALL.md). To remove it you need an
+Apple Developer ID ($99/year, https://developer.apple.com/programs/). With the certificate in your keychain and
+`APPLE_ID`, `APPLE_APP_SPECIFIC_PASSWORD` and `APPLE_TEAM_ID` set, `npm run app` signs and notarizes the app automatically.
 
 ## Updating a Studio that's already set up (e.g. on the Mac you use every day)
 

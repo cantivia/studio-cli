@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { SPLASH_OFF_KEY } from './intro/StudioIntro';
 import { motion } from 'framer-motion';
+import { Smartphone } from 'lucide-react';
 import { useStore } from '../lib/store';
 
 export function SettingsMenu({ onClose }: { onClose: () => void }) {
@@ -33,6 +34,19 @@ export function SettingsMenu({ onClose }: { onClose: () => void }) {
     >
       <Toggle label="Ink terminals" hint="Dark terminals instead of paper" on={ink} onClick={() => set({ inkTerminals: !ink })} />
       <IntroToggle />
+      <button
+        onClick={() => {
+          set({ remoteOpen: true });
+          onClose();
+        }}
+        className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left hover:bg-fill"
+      >
+        <div className="flex-1">
+          <div className="text-[13px] font-medium text-ink">Phone &amp; remote access</div>
+          <div className="text-[12px] text-muted">Use Studio from your phone or iPad</div>
+        </div>
+        <Smartphone size={15} className="text-faint" />
+      </button>
       <Toggle label="Desktop notifications" hint="When Studio is in the background" on={desktop} onClick={toggleDesktop} />
     </motion.div>
   );

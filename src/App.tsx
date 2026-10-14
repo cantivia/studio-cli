@@ -15,6 +15,7 @@ import { Shared } from './components/Shared';
 import { NotificationPanel } from './components/NotificationPanel';
 import { CommandPalette } from './components/CommandPalette';
 import { NewWorkspaceDialog } from './components/NewWorkspaceDialog';
+import { RemoteDialog } from './components/RemoteDialog';
 import { InkField } from './components/InkField';
 import { useWorkflowAutoAdvance } from './lib/runs';
 import { StudioIntro } from './components/intro/StudioIntro';
@@ -210,6 +211,7 @@ export default function App() {
       <NotificationPanel />
       <CommandPalette />
       <NewWorkspaceDialog />
+      <RemoteDialog />
       <StudioIntro />
     </div>
   );

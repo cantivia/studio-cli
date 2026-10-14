@@ -12,7 +12,7 @@ import type { TermInfo } from './terminals.ts';
  * status data.
  */
 
-const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const ROOT = process.env.STUDIO_ROOT || path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const DEFAULT_LAYOUT = path.join(ROOT, 'vendor/pixel-agents/webview-ui/public/assets/default-layout-1.json');
 const LAYOUT_DIR = path.join(DATA_DIR, 'offices');
 const READING_TOOLS = ['Read', 'Grep', 'Glob', 'WebFetch', 'WebSearch', 'LS', 'NotebookRead'];

@@ -27,6 +27,8 @@ type UiState = {
   paletteOpen: boolean;
   notificationsOpen: boolean;
   newWorkspaceOpen: boolean;
+  /** Settings → Phone & remote access dialog. */
+  remoteOpen: boolean;
   /** Phone: the sidebar drawer is open. */
   navOpen: boolean;
 };
@@ -91,6 +93,7 @@ export const useStore = create<Store>()(
       paletteOpen: false,
       notificationsOpen: false,
       newWorkspaceOpen: false,
+      remoteOpen: false,
       navOpen: false,
 
       setServer: (s) => set(s),

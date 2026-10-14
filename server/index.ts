@@ -16,6 +16,9 @@ import { offices, toolStatus, type AgentState } from './offices.ts';
 import { checkAccess, isAllowedOrigin, remoteConfig } from './access.ts';
 import { createShare, getShare, listShares, revokeShare, updateShare } from './shares.ts';
 import { guestPage } from './share-page.ts';
+import { decodeInvite } from './invite.ts';
+import { managed, startTunnel, stopTunnel, tunnelStatus } from './tunnel.ts';
+import { DATA_DIR } from './store.ts';
 
 installShellIntegration();
 
@@ -26,7 +29,8 @@ if (remoteConfig() && process.platform === 'darwin') spawn('caffeinate', ['-i', 
 const PORT = Number(process.env.PORT || 4600);
 const HOST = '127.0.0.1';
 const BASE_URL = `http://${HOST}:${PORT}`;
-const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+// STUDIO_ROOT: where dist/ and a few assets live when the server runs bundled inside the Mac app.
+const ROOT = process.env.STUDIO_ROOT || path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
 const terms = new TerminalManager(BASE_URL);
 const paneTerms = new Map<string, string>(); // pane id → terminal id
@@ -263,7 +267,7 @@ const withUrl = (req: express.Request, s: Awaited<ReturnType<typeof createShare>
 app.get(
   '/api/shares',
   // `remote` says whether links can work for other people: without remote access they only open on this computer.
-  wrap(async (req, res) => res.json({ remote: !!remoteConfig()?.shareAud, links: (await listShares()).map((s) => withUrl(req, s)) })),
+  wrap(async (req, res) => res.json({ remote: !!remoteConfig()?.shareAud, managed: managed(), links: (await listShares()).map((s) => withUrl(req, s)) })),
 );
 app.post(
   '/api/shares',
@@ -312,6 +316,37 @@ app.post(
     res.json({ sessionId, cwd: dir, added });
   }),
 );
+
+// Remote access settings (Mac app). Changing them is only allowed from this computer, never through the tunnel.
+const onThisComputer = (req: express.Request) => !req.headers['cf-ray'] && !req.headers['cf-connecting-ip'];
+const remoteInfo = () => {
+  const cfg = remoteConfig();
+  return { ...tunnelStatus(), configured: !!cfg, host: cfg?.host || null, allow: cfg?.allow || [] };
+};
+app.get('/api/remote', (_req, res) => res.json(remoteInfo()));
+app.post(
+  '/api/remote/join',
+  wrap(async (req, res) => {
+    if (!managed()) return res.status(400).json({ error: 'This Studio doesn’t manage its own tunnel. Use `npm run setup` instead.' });
+    if (!onThisComputer(req)) return res.status(403).json({ error: 'Do this on the computer itself.' });
+    const inv = decodeInvite(String(req.body?.code || ''));
+    const file = path.join(DATA_DIR, 'remote.json');
+    if (fs.existsSync(file)) fs.copyFileSync(file, `${file}.bak`);
+    fs.writeFileSync(
+      file,
+      JSON.stringify({ host: inv.host, team: inv.team, aud: inv.aud, allow: inv.allow, shareAud: inv.shareAud, shareAllow: inv.shareAllow }, null, 2) + '\n',
+    );
+    fs.writeFileSync(path.join(DATA_DIR, 'tunnel-token'), inv.tunnelToken, { mode: 0o600 });
+    startTunnel();
+    res.json({ ...remoteInfo(), email: inv.email });
+  }),
+);
+app.delete('/api/remote', (req, res) => {
+  if (!managed() || !onThisComputer(req)) return res.status(403).json({ error: 'Not allowed' });
+  stopTunnel();
+  for (const f of ['remote.json', 'tunnel-token']) fs.rmSync(path.join(DATA_DIR, f), { force: true });
+  res.json(remoteInfo());
+});
 
 // Guest side (a link's visitor): a standalone page, its data, and its terminals. Nothing else is reachable.
 const guestHeaders = (res: express.Response) => {
@@ -497,7 +532,12 @@ server.on('upgrade', async (req, socket, head) => {
 // Terminals live in the pty host, so they outlive this process: connect (and pick them up) before serving.
 terms
   .start()
-  .then(() => server.listen(PORT, HOST, () => console.log(`[studio] server on ${BASE_URL}`)))
+  .then(() =>
+    server.listen(PORT, HOST, () => {
+      console.log(`[studio] server on ${BASE_URL}`);
+      startTunnel();
+    }),
+  )
   .catch((e) => {
     console.error('[studio]', e.message);
     process.exit(1);

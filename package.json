@@ -11,7 +11,10 @@
     "start": "NODE_ENV=production tsx server/index.ts",
     "postinstall": "chmod +x node_modules/node-pty/prebuilds/darwin-*/spawn-helper 2>/dev/null || true",
     "build:office": "cd vendor/pixel-agents/webview-ui && npx vite build",
-    "setup": "node scripts/setup.mjs"
+    "setup": "node scripts/setup.mjs",
+    "invite": "node scripts/invite.mjs",
+    "app": "node scripts/build-app.mjs",
+    "app:dir": "node scripts/build-app.mjs --dir"
   },
   "dependencies": {
     "@xterm/addon-fit": "^0.11.0",
@@ -39,6 +42,8 @@
     "@types/ws": "^8.18.2",
     "@vitejs/plugin-react": "^6.1.2",
     "concurrently": "^10.0.6",
+    "electron": "^44.7.2",
+    "electron-builder": "^26.15.3",
     "tailwindcss": "^4.3.3",
     "tsx": "^4.23.15",
     "typescript": "^7.0.2",
