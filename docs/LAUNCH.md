@@ -1,6 +1,6 @@
 # Going public: checklist
 
-Everything below is **prepared but not done**. Nothing here is live: the repo is still private, the website still shows your Studio, nothing is merged to `main`. Work through it in order; each step says how to check it and how to undo it. Your own Studio keeps working at `studio-cli.cantivia.com` until step 7.
+**Status (14 Oct 2026): steps 0–5 and 7 are done and live** (repo public, `main` merged, connection service at studio-api.cantivia.com, release v0.1.0, website on studio-cli.cantivia.com). **Step 6 (moving the owner onto the app) is deliberately left for the owner to do by hand.** The rest of this document is the record of how, and the undo for each step. Original note: everything below was prepared first and run in order. Work through it in order; each step says how to check it and how to undo it. Your own Studio keeps working at `studio-cli.cantivia.com` until step 7.
 
 What changes: the GitHub repo becomes public (with the Mac app as a GitHub release), and `studio-cli.cantivia.com` stops being *your* Studio and becomes a normal website with a download button and a GitHub link. Anyone can install the app. Phones pair with a one-time code (no emails, no company login). Each person's computer gets its own private address from a small connection service.
 
@@ -93,3 +93,9 @@ Send the link. Anyone can install, and everyone's Studio, terminals and Claude s
 
 - **New versions:** `npm run app`, `gh release create v0.1.1 …` with a new `Studio-CLI.dmg` (the website follows "latest" automatically). Users download the new file and drag it over the old one (there is no auto-update yet).
 - **If someone abuses the connection service:** set `MAX_PER_DAY` to `0` and redeploy to stop new sign-ups; existing installs keep working. See provisioner/README.md.
+
+## Record of what was changed in Cloudflare (for undo)
+
+- Deleted the Access app "Studio CLI" and the CNAME `studio-cli.cantivia.com` -> old tunnel. Copies of both are in `~/.studio-cli/old-cloudflare/` on the owner's Mac (dns-record.json, access-app.json). The old tunnel `studio-cli` itself still exists and is untouched.
+- Worker `studio-connect` (custom domain studio-api.cantivia.com, daily cleanup cron), KV namespace REG, worker `studio-cli-site` (custom domain studio-cli.cantivia.com).
+- The connection service holds only a minimal token (Tunnel Write + DNS Write on the cantivia.com zone). The broader token used for the cutover should be deleted.

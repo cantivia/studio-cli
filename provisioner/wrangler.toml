@@ -13,13 +13,12 @@ LOCAL_PORT = "4600"
 MAX_PER_DAY = "300"
 PER_IP_PER_DAY = "3"
 STALE_DAYS = "180"
-# Also set these two (not secret, but specific to your account), before the first deploy:
-# CF_ACCOUNT_ID = "…"
-# CF_ZONE_ID = "…"   # the zone for DOMAIN
+CF_ACCOUNT_ID = "b40f7828a45120de4f579869eeb6f99b"
+CF_ZONE_ID = "69777795953188b92e721f00ae75083a"   # the cantivia.com zone
 
 [[kv_namespaces]]
 binding = "REG"
-id = "REPLACE_WITH_KV_NAMESPACE_ID"   # npx wrangler kv namespace create REG
+id = "78757b0372ec4078af89916266e8c1ba"
 
 [triggers]
 crons = ["17 4 * * *"]
