@@ -38,14 +38,17 @@ See [provisioner/README.md](../provisioner/README.md). When `curl https://studio
 
 ## 4. Publish the Mac app as a GitHub release
 
-The website's download button points at the latest release (`site/downloads.json`), so the file must be named exactly `Studio-CLI.dmg`:
+The website serves downloads from its own cached address (`/download/arm64`, `/download/x64`, see `site-worker/worker.mjs`), which fetches the files from the latest GitHub release once and then serves them from Cloudflare's network (about 50 MB/s from the cache; also supports resuming). The release files must be named exactly `Studio-CLI-arm64.dmg` and `Studio-CLI-x64.dmg`:
 
 ```bash
-npm run app                                             # builds release/out/Studio-CLI-0.1.0.dmg (one file, every Mac)
-cp release/out/Studio-CLI-0.1.0.dmg /tmp/Studio-CLI.dmg
-gh release create v0.1.0 /tmp/Studio-CLI.dmg --title "Studio CLI 0.1.0" --notes "First public release. Open the file, drag Studio CLI to Applications. See docs/INSTALL.md."
-curl -sIL https://github.com/cantivia/studio-cli/releases/latest/download/Studio-CLI.dmg | grep -i "^HTTP"    # ends in 200
+npm run app                       # builds release/out/Studio-CLI-<version>-arm64.dmg and -x64.dmg (about 120 MB each)
+mkdir -p /tmp/rel && cp release/out/Studio-CLI-*-arm64.dmg /tmp/rel/Studio-CLI-arm64.dmg && cp release/out/Studio-CLI-*-x64.dmg /tmp/rel/Studio-CLI-x64.dmg
+gh release create v0.1.1 /tmp/rel/*.dmg --title "Studio CLI 0.1.1" --notes "..."
+# then set "version" in site/downloads.json to match (it names the cache entry), and redeploy the site:
+cd site-worker && npx wrangler deploy
+curl -sI https://studio-cli.cantivia.com/download/arm64 | grep -i x-studio-cache     # MISS the first time, HIT after
 ```
+
 
 *Undo:* `gh release delete v0.1.0 --cleanup-tag`.
 
@@ -75,11 +78,9 @@ Afterwards: in the app, Settings → Phone & remote access → Turn on phone acc
 The page is in `site/` (plain HTML, no build) with the download button and GitHub link. The address currently points at your Mac's tunnel through a DNS record, so:
 
 1. In the Cloudflare dashboard, remove the **old Access app** "Studio CLI" and the **old tunnel's public hostname** for `studio-cli.cantivia.com` (Zero Trust → Networks → Tunnels → `studio-cli` → Public hostnames; the app can be deleted afterwards). Delete the old tunnel too once you've moved to the app in step 6.
-2. Deploy the site and attach the domain (this replaces the DNS record):
+2. Deploy the site (the custom domain is in `site-worker/wrangler.jsonc`, so this also replaces the DNS record):
    ```bash
-   npx wrangler pages project create studio-cli-site --production-branch main
-   npx wrangler pages deploy site --project-name studio-cli-site
-   # Dashboard: Workers & Pages → studio-cli-site → Custom domains → add studio-cli.cantivia.com
+   cd site-worker && npx wrangler deploy
    ```
 3. Check: open https://studio-cli.cantivia.com on a Mac. It should show the page, the button should download the app, and the GitHub link should open the repo.
 
@@ -91,11 +92,12 @@ Send the link. Anyone can install, and everyone's Studio, terminals and Claude s
 
 ## What's still manual afterwards
 
-- **New versions:** `npm run app`, `gh release create v0.1.1 …` with a new `Studio-CLI.dmg` (the website follows "latest" automatically). Users download the new file and drag it over the old one (there is no auto-update yet).
+- **New versions:** the commands in step 4, including bumping `version` in `site/downloads.json` and redeploying `site-worker`. Users download the new file and drag it over the old one (there is no auto-update yet).
 - **If someone abuses the connection service:** set `MAX_PER_DAY` to `0` and redeploy to stop new sign-ups; existing installs keep working. See provisioner/README.md.
 
 ## Record of what was changed in Cloudflare (for undo)
 
 - Deleted the Access app "Studio CLI" and the CNAME `studio-cli.cantivia.com` -> old tunnel. Copies of both are in `~/.studio-cli/old-cloudflare/` on the owner's Mac (dns-record.json, access-app.json). The old tunnel `studio-cli` itself still exists and is untouched.
+- Worker `studio-cli-site` also serves the cached download addresses (`/download/arm64`, `/download/x64`).
 - Worker `studio-connect` (custom domain studio-api.cantivia.com, daily cleanup cron), KV namespace REG, worker `studio-cli-site` (custom domain studio-cli.cantivia.com).
 - The connection service holds only a minimal token (Tunnel Write + DNS Write on the cantivia.com zone). The broader token used for the cutover should be deleted.

@@ -160,7 +160,7 @@
   const labels = { universal: 'Download for Mac', arm64: 'Download for Mac (Apple chip)', x64: 'Download for Mac (Intel)' };
   const links = !d ? null : d.universal ? { universal: d.universal } : { arm64: d.arm64, x64: d.x64 };
   const guess = !links ? null : links.universal ? 'universal' : chip();
-  const size = d && d.sizeMb ? ` · ${d.sizeMb} MB` : '';
+  const size = d && d.sizeMb ? ` · ${typeof d.sizeMb === 'object' ? (d.sizeMb[guess] || Math.max(...Object.values(d.sizeMb))) : d.sizeMb} MB` : '';
   const ver = d ? `Version ${d.version} · ` : '';
   const set = (key) => {
     ['download', 'download2'].forEach((id) => { const a = $(id); if (key) { a.href = links[key]; a.setAttribute('download', ''); } });

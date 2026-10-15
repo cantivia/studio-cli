@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 /**
  * Builds the Mac app and its installers: `npm run app` (DMGs in release/out) or `npm run app -- --dir`
- * (just the .app, faster, for testing). By default one universal installer is built that runs on every Mac;
- * `--split` makes separate Apple-chip and Intel ones instead, and `--arch arm64|x64` builds just one.
+ * (just the .app, faster, for testing). By default one smaller installer per chip is built (Apple chip and Intel);
+ * `--universal` makes one fat installer that runs on both, and `--arch arm64|x64` builds just one.
  *
  * What goes in the app: the built web app, the server and pty host bundled into two files, node-pty
  * (the one native piece), and the cloudflared program for the phone tunnel. Electron supplies Node.
@@ -25,10 +25,10 @@ const CACHE = path.join(REL, 'cache');
 const args = process.argv.slice(2);
 const DIR_ONLY = args.includes('--dir');
 const archArg = args.includes('--arch') ? args[args.indexOf('--arch') + 1] : null;
-const SPLIT = args.includes('--split');
+const SPLIT = !args.includes('--universal'); // one smaller file per chip by default; --universal makes one that works on both
 // What cloudflared and node-pty are fetched for; the installer itself may be one universal app made from both.
 const ARCHS = archArg ? [archArg] : DIR_ONLY && !args.includes('--universal') ? [process.arch === 'arm64' ? 'arm64' : 'x64'] : ['arm64', 'x64'];
-const UNIVERSAL = !archArg && !SPLIT && (!DIR_ONLY || args.includes('--universal'));
+const UNIVERSAL = !archArg && !SPLIT;
 const pkg = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8'));
 const run = (cmd, a, opts = {}) => execFileSync(cmd, a, { cwd: ROOT, stdio: 'inherit', ...opts });
 const log = (m) => console.log(`\n\x1b[1m${m}\x1b[0m`);
@@ -114,6 +114,8 @@ await packager({
     // No spaces, so download links stay clean. One universal file, or one per chip with --split.
     artifactName: UNIVERSAL ? 'Studio-CLI-${version}.${ext}' : 'Studio-CLI-${version}-${arch}.${ext}',
     extraResources: [{ from: path.join(CACHE, 'cloudflared-${arch}'), to: 'cloudflared' }],
+    // The app is English-only, so the 50 MB of other language packs Electron carries are dropped.
+    electronLanguages: ['en', 'en_GB', 'en-US'],
     mac: {
       category: 'public.app-category.developer-tools',
       icon: path.join(ROOT, 'build/icon.icns'),
@@ -124,7 +126,8 @@ await packager({
       x64ArchFiles: 'Contents/Resources/app/node_modules/node-pty/prebuilds/**',
       extendInfo: { LSUIElement: false },
     },
-    dmg: { title: 'Studio CLI', contents: [{ x: 130, y: 190 }, { x: 410, y: 190, type: 'link', path: '/Applications' }] },
+    dmg: { title: 'Studio CLI', format: 'UDBZ', // bzip2: smaller than the default
+      contents: [{ x: 130, y: 190 }, { x: 410, y: 190, type: 'link', path: '/Applications' }] },
     afterPack: async (ctx) => {
       // Without a Developer ID, apple-silicon Macs still refuse unsigned apps: sign ad-hoc so the app at least launches.
       if (process.env.CSC_LINK) return;

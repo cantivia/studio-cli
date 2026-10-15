@@ -1,8 +1,15 @@
 {
-  "version": "0.1.0",
-  "note": "Where the installer lives: the latest GitHub release of the repo (the file in each release must be named exactly Studio-CLI.dmg). The page reads this file, so changing it needs no HTML edit.",
-  "universal": "https://github.com/cantivia/studio-cli/releases/latest/download/Studio-CLI.dmg",
-  "arm64": null,
-  "x64": null,
-  "sizeMb": 271
+  "version": "0.1.1",
+  "note": "arm64/x64 are the website's own download addresses (cached by Cloudflare, served by site-worker/worker.mjs); source is where they come from: the latest GitHub release, whose files must be named Studio-CLI-arm64.dmg and Studio-CLI-x64.dmg. Bump version for each release so the cache refreshes.",
+  "universal": null,
+  "arm64": "/download/arm64",
+  "x64": "/download/x64",
+  "sizeMb": {
+    "arm64": 120,
+    "x64": 127
+  },
+  "source": {
+    "arm64": "https://github.com/cantivia/studio-cli/releases/latest/download/Studio-CLI-arm64.dmg",
+    "x64": "https://github.com/cantivia/studio-cli/releases/latest/download/Studio-CLI-x64.dmg"
+  }
 }

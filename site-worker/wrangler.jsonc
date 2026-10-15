@@ -1,0 +1,16 @@
+{
+  // The website: static files in ../site, plus the cached download address in worker.mjs.
+  // Deploy:  cd site-worker && npx wrangler deploy
+  "name": "studio-cli-site",
+  "main": "worker.mjs",
+  "compatibility_date": "2026-05-02",
+  "assets": {
+    "directory": "../site",
+    "binding": "ASSETS",
+    "html_handling": "auto-trailing-slash",
+    "not_found_handling": "404-page",
+    "run_worker_first": ["/download/*"]
+  },
+  "workers_dev": true,
+  "routes": [{ "pattern": "studio-cli.cantivia.com", "custom_domain": true }]
+}
