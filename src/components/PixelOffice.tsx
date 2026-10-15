@@ -86,15 +86,15 @@ export function PixelOffice() {
         </button>
       </div>
       <div className="pane paper relative min-h-0 flex-1" style={{ background: '#1e1e2e', ['--acc' as string]: offices.find((o) => o.key === active)?.color }}>
+        {/* Only the room on screen runs: a hidden one would keep its game loop drawing 60 frames a second and slow everything else down. It reconnects instantly when you come back. */}
         {offices
-          .filter((o) => visited.has(o.key))
+          .filter((o) => visible && o.key === active && visited.has(o.key))
           .map((o) => (
             <iframe
               key={`${o.key}-${nonce[o.key] || 0}`}
               src={`/office/index.html?office=${encodeURIComponent(o.key)}`}
               title={`${o.name} agent view`}
               className="absolute inset-0 h-full w-full border-0"
-              style={{ visibility: visible && o.key === active ? 'visible' : 'hidden' }}
             />
           ))}
         {offices.find((o) => o.key === active)?.count === 0 && (
