@@ -1,6 +1,6 @@
 {
   "name": "studio-cli",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "Terminals and Claude Code sessions in one calm window, on your Mac, reachable from your phone.",
   "private": true,
   "license": "MIT",
