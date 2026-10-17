@@ -92,7 +92,7 @@ Send the link. Anyone can install, and everyone's Studio, terminals and Claude s
 
 ## What's still manual afterwards
 
-- **New versions:** the commands in step 4, including bumping `version` in `site/downloads.json` and redeploying `site-worker`. Users download the new file and drag it over the old one (there is no auto-update yet).
+- **New versions:** bump `version` in `package.json`, commit on `main`, then `npm run release -- --notes "What changed"` (builds, stamps with the update key, publishes the GitHub release, updates `site/downloads.json` and redeploys the website). Apps from 0.1.4 on update themselves within a few hours, once nobody is using Studio; older ones download the new file and drag it over the old one.
 - **If someone abuses the connection service:** set `MAX_PER_DAY` to `0` and redeploy to stop new sign-ups; existing installs keep working. See provisioner/README.md.
 
 ## Record of what was changed in Cloudflare (for undo)
