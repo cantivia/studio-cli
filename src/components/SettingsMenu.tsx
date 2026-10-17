@@ -3,9 +3,10 @@ import { SPLASH_OFF_KEY } from './intro/StudioIntro';
 import { motion } from 'framer-motion';
 import { Smartphone } from 'lucide-react';
 import { useStore } from '../lib/store';
+import { TERM_THEMES } from '../lib/termThemes';
 
 export function SettingsMenu({ onClose }: { onClose: () => void }) {
-  const ink = useStore((s) => s.inkTerminals);
+  const themeId = useStore((s) => s.terminalTheme);
   const desktop = useStore((s) => s.desktopNotifications);
   const set = useStore((s) => s.set);
   const ref = useRef<HTMLDivElement>(null);
@@ -32,7 +33,31 @@ export function SettingsMenu({ onClose }: { onClose: () => void }) {
       transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
       className="surface absolute bottom-14 left-3 right-3 z-50 rounded-2xl p-2"
     >
-      <Toggle label="Ink terminals" hint="Dark terminals instead of paper" on={ink} onClick={() => set({ inkTerminals: !ink })} />
+      <div className="px-3 pb-1 pt-2">
+        <div className="text-[13px] font-medium text-ink">Terminal theme</div>
+        <div className="text-[12px] text-muted">Colours for every terminal and Claude pane</div>
+        <div className="mt-2 grid max-h-[232px] grid-cols-1 gap-1 overflow-y-auto pr-0.5">
+          {TERM_THEMES.map((t) => {
+            const on = t.id === themeId;
+            return (
+              <button
+                key={t.id}
+                title={t.hint}
+                onClick={() => set({ terminalTheme: t.id })}
+                className={`flex items-center gap-2.5 rounded-xl border px-2 py-1 text-left transition hover:bg-fill ${on ? 'border-violet bg-fill' : 'border-[var(--line)]'}`}
+              >
+                <span
+                  className="grid h-6 w-6 shrink-0 place-items-center rounded-md border border-black/10 font-mono text-[10px] font-bold"
+                  style={{ background: t.colors.background, color: t.colors.foreground }}
+                >
+                  <span style={{ color: t.colors.blue }}>$</span>
+                </span>
+                <span className="min-w-0 truncate text-[12px] font-medium text-ink">{t.name}</span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
       <IntroToggle />
       <button
         onClick={() => {

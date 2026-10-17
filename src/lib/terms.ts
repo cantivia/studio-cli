@@ -3,6 +3,7 @@ import { FitAddon } from '@xterm/addon-fit';
 import { WebLinksAddon } from '@xterm/addon-web-links';
 import { WebglAddon } from '@xterm/addon-webgl';
 import { isPhone } from './device';
+import { termThemeDef } from './termThemes';
 import '@xterm/xterm/css/xterm.css';
 
 /**
@@ -22,7 +23,7 @@ type Entry = {
   gone: boolean;
   disposed: boolean;
   accent: string;
-  ink: boolean;
+  themeId: string;
   /** The pty's current size as the server last reported it (another device may have set it). */
   ptySize: { cols: number; rows: number } | null;
   connectedBefore: boolean;
@@ -35,11 +36,11 @@ type Entry = {
 const registry = new Map<string, Entry>();
 const CLAUDE_LIGHT_MSG_BG = '\x1b[48;2;240;240;240m';
 const listeners = new Set<() => void>();
-/** ~9% of the accent over the paper background, as a truecolor background escape. */
-function msgTint(accent: string) {
+/** ~9% of the accent over the theme's background, as a truecolor background escape. */
+function msgTint(accent: string, bg: string) {
   const n = parseInt(accent.slice(1), 16);
-  const paper = [0xfb, 0xf9, 0xf4];
-  const mix = [(n >> 16) & 255, (n >> 8) & 255, n & 255].map((c, i) => Math.round(paper[i] + (c - paper[i]) * 0.09));
+  const base = [1, 3, 5].map((i) => parseInt(bg.slice(i, i + 2), 16));
+  const mix = [(n >> 16) & 255, (n >> 8) & 255, n & 255].map((c, i) => Math.round(base[i] + (c - base[i]) * 0.09));
   return `\x1b[48;2;${mix.join(';')}m`;
 }
 const changed = () => listeners.forEach((fn) => fn());
@@ -49,62 +50,18 @@ export function subscribe(fn: () => void) {
   return () => void listeners.delete(fn);
 }
 
-export const PAPER_BG = '#fbf9f4';
-export const INK_BG = '#0e0e10';
-
-const INK_BASE: ITheme = {
-  background: INK_BG,
-  foreground: '#e9e6df',
-  black: '#1d1d1f',
-  red: '#ff6b6b',
-  green: '#5fd4a0',
-  yellow: '#f2c36b',
-  blue: '#73a7ff',
-  magenta: '#b794f6',
-  cyan: '#62d0e6',
-  white: '#d2d2d7',
-  brightBlack: '#6e6e73',
-  brightRed: '#ff8787',
-  brightGreen: '#7fe3b6',
-  brightYellow: '#f7d48f',
-  brightBlue: '#99beff',
-  brightMagenta: '#cdb2fa',
-  brightCyan: '#8be0f0',
-  brightWhite: '#ffffff',
-};
-
-/** Warm paper that sits inside the app instead of a black box dropped on top of it. */
-const PAPER_BASE: ITheme = {
-  background: PAPER_BG,
-  foreground: '#1d1d1f',
-  black: '#1d1d1f',
-  red: '#c8102e',
-  green: '#1a7f45',
-  yellow: '#9a5b00',
-  blue: '#1d5fd1',
-  magenta: '#7c3aed',
-  cyan: '#0b7489',
-  white: '#8e8e93',
-  brightBlack: '#8a8780',
-  brightRed: '#e5383b',
-  brightGreen: '#23a35a',
-  brightYellow: '#b87100',
-  brightBlue: '#2f74f0',
-  brightMagenta: '#9061f9',
-  brightCyan: '#1192ad',
-  brightWhite: '#3a3a3c',
-};
-
-export function themeFor(ink: boolean, accent: string): ITheme {
-  const base = ink ? INK_BASE : PAPER_BASE;
+export function themeFor(themeId: string, accent: string): ITheme {
+  const def = termThemeDef(themeId);
+  const base = def.colors;
   const n = parseInt(accent.slice(1), 16);
   const rgb = `${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}`;
+  const dark = def.dark;
   return {
     ...base,
     cursor: accent,
     cursorAccent: base.background,
-    selectionBackground: `rgba(${rgb}, ${ink ? 0.34 : 0.2})`,
-    selectionInactiveBackground: `rgba(${rgb}, ${ink ? 0.2 : 0.12})`,
+    selectionBackground: `rgba(${rgb}, ${dark ? 0.34 : 0.2})`,
+    selectionInactiveBackground: `rgba(${rgb}, ${dark ? 0.2 : 0.12})`,
     scrollbarSliderBackground: `rgba(${rgb}, 0.18)`,
     scrollbarSliderHoverBackground: `rgba(${rgb}, 0.32)`,
     scrollbarSliderActiveBackground: `rgba(${rgb}, 0.45)`,
@@ -135,8 +92,9 @@ function connect(termId: string, e: Entry) {
       } catch {}
       return;
     }
-    // Paper terminals: Claude's light theme puts your messages in a grey box; swap it for a faint wash of the workspace colour.
-    e.term.write(e.ink ? data : data.replaceAll(CLAUDE_LIGHT_MSG_BG, msgTint(e.accent)));
+    // Light terminals: Claude's light theme puts your messages in a grey box; swap it for a faint wash of the workspace colour.
+    const def = termThemeDef(e.themeId);
+    e.term.write(def.dark ? data : data.replaceAll(CLAUDE_LIGHT_MSG_BG, msgTint(e.accent, def.colors.background as string)));
   };
   ws.onclose = (ev) => {
     if (e.disposed) return;
@@ -182,7 +140,7 @@ function afterReplay(e: Entry) {
   });
 }
 
-export function getTerm(termId: string, ink: boolean, accent: string): Entry {
+export function getTerm(termId: string, themeId: string, accent: string): Entry {
   let e = registry.get(termId);
   if (e) return e;
   const term = new Terminal({
@@ -196,7 +154,7 @@ export function getTerm(termId: string, ink: boolean, accent: string): Entry {
     scrollback: 10000,
     // Default trackpad/wheel scrolling felt slow; this doubles it (hold ⌥ for faster still).
     scrollSensitivity: 2,
-    theme: themeFor(ink, accent),
+    theme: themeFor(themeId, accent),
   });
   const fit = new FitAddon();
   term.loadAddon(fit);
@@ -213,7 +171,7 @@ export function getTerm(termId: string, ink: boolean, accent: string): Entry {
     gone: false,
     disposed: false,
     accent,
-    ink,
+    themeId,
     ptySize: null,
     connectedBefore: false,
     awaitingReplay: false,
@@ -229,8 +187,8 @@ export function getTerm(termId: string, ink: boolean, accent: string): Entry {
   return e;
 }
 
-export function mountTerm(termId: string, container: HTMLElement, ink: boolean, accent: string) {
-  const e = getTerm(termId, ink, accent);
+export function mountTerm(termId: string, container: HTMLElement, themeId: string, accent: string) {
+  const e = getTerm(termId, themeId, accent);
   container.appendChild(e.el);
   if (!e.opened) {
     e.term.open(e.el);
@@ -330,18 +288,18 @@ export function focusTerm(termId: string) {
   registry.get(termId)?.term.focus();
 }
 
-export function setTheme(ink: boolean) {
+export function setTheme(themeId: string) {
   for (const e of registry.values()) {
-    e.ink = ink;
-    e.term.options.theme = themeFor(ink, e.accent);
+    e.themeId = themeId;
+    e.term.options.theme = themeFor(themeId, e.accent);
   }
 }
 
-export function setAccent(termId: string, ink: boolean, accent: string) {
+export function setAccent(termId: string, themeId: string, accent: string) {
   const e = registry.get(termId);
   if (!e || e.accent === accent) return;
   e.accent = accent;
-  e.term.options.theme = themeFor(ink, accent);
+  e.term.options.theme = themeFor(themeId, accent);
 }
 
 export function disposeTerm(termId: string) {

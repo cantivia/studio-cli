@@ -6,6 +6,7 @@ import { alpha, hue, type Hue } from '../lib/colors';
 import { disposeTerm, fitTerm, focusTerm, hasTerm, isClosed, isGone, isScrolledUp, mountTerm, onTermScroll, scrollToBottom, sendKey, setAccent, subscribe, type KeyName } from '../lib/terms';
 import type { TerminalPane } from '../lib/types';
 import { useIsTouch } from '../lib/device';
+import { termThemeDef } from '../lib/termThemes';
 
 const creating = new Set<string>();
 
@@ -37,7 +38,9 @@ export function TerminalView({ pane, focused, visible, onFocus, actions, headerE
   const doneUnread = useStore(
     (s) => !!pane.termId && s.notifications.some((n) => n.termId === pane.termId && !n.read && (n.source === 'claude' || n.source === 'osc777')),
   );
-  const ink = useStore((s) => s.inkTerminals);
+  const themeId = useStore((s) => s.terminalTheme);
+  const termDef = termThemeDef(themeId);
+  const ink = termDef.dark;
   const touch = useIsTouch();
   const home = useStore((s) => s.home);
   const updatePane = useStore((s) => s.updatePane);
@@ -84,7 +87,7 @@ export function TerminalView({ pane, focused, visible, onFocus, actions, headerE
     const el = ref.current;
     if (!el || !pane.termId || !(alive || hasTerm(pane.termId))) return;
     const id = pane.termId;
-    mountTerm(id, el, ink, accent.glow);
+    mountTerm(id, el, themeId, accent.glow);
     const ro = new ResizeObserver(() => fitTerm(id));
     ro.observe(el);
     return () => ro.disconnect();
@@ -92,8 +95,8 @@ export function TerminalView({ pane, focused, visible, onFocus, actions, headerE
   }, [pane.termId, alive]);
 
   useEffect(() => {
-    if (pane.termId) setAccent(pane.termId, ink, accent.glow);
-  }, [pane.termId, ink, accent.glow]);
+    if (pane.termId) setAccent(pane.termId, themeId, accent.glow);
+  }, [pane.termId, themeId, accent.glow]);
 
   useEffect(() => {
     if (focused && visible && pane.termId) {
@@ -123,6 +126,8 @@ export function TerminalView({ pane, focused, visible, onFocus, actions, headerE
   const muted = ink ? 'text-[#8e8e93]' : 'text-[#8a8780]';
   // Pane colour drives the border, glow, ring, cursor and prompt.
   const vars = {
+    '--pane-bg': termDef.colors.background,
+    '--pane-line': termDef.line,
     '--acc': accent.glow,
     '--acc-ui': ink ? accent.glow : accent.ui,
     '--acc-soft': alpha(accent.glow, ink ? 0.16 : 0.12),

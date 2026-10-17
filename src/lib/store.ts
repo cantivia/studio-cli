@@ -3,6 +3,7 @@ import { persist } from 'zustand/middleware';
 import type { FocusSession, LayoutNode, Mode, Notification, Pane, TermInfo, TermMeta, Workspace } from './types';
 import { basename, uid } from './api';
 import { nextHue } from './colors';
+import { DEFAULT_TERM_THEME } from './termThemes';
 import { findPane, gridLayout, mapPane, panes, removePane, setRatio, splitPane, terminalPane } from './layout';
 
 type ServerState = {
@@ -21,8 +22,8 @@ type UiState = {
   activeId: string | null;
   /** Claude side panel in Workspaces (shown when a Claude pane is focused). */
   claudePanel: boolean;
-  /** Ink (dark) terminals instead of the built-in paper look. */
-  inkTerminals: boolean;
+  /** Terminal colour theme id (see termThemes.ts). */
+  terminalTheme: string;
   desktopNotifications: boolean;
   paletteOpen: boolean;
   notificationsOpen: boolean;
@@ -88,7 +89,7 @@ export const useStore = create<Store>()(
       workspaces: [],
       activeId: null,
       claudePanel: true,
-      inkTerminals: false,
+      terminalTheme: DEFAULT_TERM_THEME,
       desktopNotifications: false,
       paletteOpen: false,
       notificationsOpen: false,
@@ -227,7 +228,7 @@ export const useStore = create<Store>()(
       name: 'cmux-studio',
       // The Claude tab is gone: any Claude sessions saved from it become workspaces (terminals kept).
       merge: (persisted, current) => {
-        const p = (persisted || {}) as Partial<Store> & { focusSessions?: FocusSession[] };
+        const p = (persisted || {}) as Partial<Store> & { focusSessions?: FocusSession[]; inkTerminals?: boolean };
         const moved: Workspace[] = (p.focusSessions || []).map((f) => ({
           id: uid(),
           name: f.label.replace(/ ↺$/, ''),
@@ -236,8 +237,10 @@ export const useStore = create<Store>()(
           root: { type: 'pane', pane: f.pane },
           focusedPaneId: f.pane.id,
         }));
-        const { focusSessions: _drop, ...rest } = p;
+        // The old on/off "Ink terminals" switch became a theme picker; carry the choice over.
+        const { focusSessions: _drop, inkTerminals, ...rest } = p;
         void _drop;
+        if (!rest.terminalTheme && inkTerminals) rest.terminalTheme = 'ink';
         return {
           ...current,
           ...rest,
@@ -251,7 +254,7 @@ export const useStore = create<Store>()(
         workspaces: s.workspaces,
         activeId: s.activeId,
         claudePanel: s.claudePanel,
-        inkTerminals: s.inkTerminals,
+        terminalTheme: s.terminalTheme,
         desktopNotifications: s.desktopNotifications,
       }),
     },

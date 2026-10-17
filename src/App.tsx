@@ -143,12 +143,12 @@ export default function App() {
   useShortcuts();
   const mode = useStore((s) => s.mode);
   const ready = useStore((s) => s.ready);
-  const ink = useStore((s) => s.inkTerminals);
+  const termTheme = useStore((s) => s.terminalTheme);
   const phone = useIsPhone();
   const navOpen = useStore((s) => s.navOpen);
   const set = useStore((s) => s.set);
 
-  useEffect(() => setTheme(ink), [ink]);
+  useEffect(() => setTheme(termTheme), [termTheme]);
   useOfficeSync();
   useWorkflowAutoAdvance();
 

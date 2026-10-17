@@ -4,6 +4,7 @@ import { Bell, Columns2, Gamepad2, Globe, History, LayoutGrid, Maximize2, Moon, 
 import { useStore } from '../lib/store';
 import { api, uid } from '../lib/api';
 import { findPane, terminalPane } from '../lib/layout';
+import { TERM_THEMES } from '../lib/termThemes';
 
 type Item = { id: string; label: string; hint?: string; group: string; icon: typeof Plus; keys?: string; run: () => void };
 
@@ -51,13 +52,14 @@ export function CommandPalette() {
       { id: 'm-sessions', group: 'Go to', label: 'Sessions history', icon: History, run: () => s.setMode('sessions') },
       { id: 'notifs', group: 'Go to', label: 'Notifications', icon: Bell, keys: '⌘⇧I', run: () => s.set({ notificationsOpen: true }) },
       { id: 'read-all', group: 'Settings', label: 'Mark all notifications read', icon: Bell, run: () => api.markRead({ all: true }) },
-      {
-        id: 'theme',
+      ...TERM_THEMES.map((t) => ({
+        id: `theme-${t.id}`,
         group: 'Settings',
-        label: s.inkTerminals ? 'Use paper (light) terminals' : 'Use ink (dark) terminals',
+        label: `Terminal theme: ${t.name}`,
+        hint: s.terminalTheme === t.id ? 'current' : t.hint,
         icon: Moon,
-        run: () => s.set({ inkTerminals: !s.inkTerminals }),
-      },
+        run: () => s.set({ terminalTheme: t.id }),
+      })),
       ...s.workspaces.map((w, i) => ({
         id: `ws-${w.id}`,
         group: 'Workspaces',
