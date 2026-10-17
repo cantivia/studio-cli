@@ -22,7 +22,10 @@
     "invite": "node scripts/invite.mjs",
     "app": "node scripts/build-app.mjs",
     "app:dir": "node scripts/build-app.mjs --dir",
-    "switch-to-app": "node scripts/switch-to-app.mjs"
+    "switch-to-app": "node scripts/switch-to-app.mjs",
+    "test:update": "node --test electron/update-core.test.cjs",
+    "release": "node scripts/release.mjs",
+    "release:key": "node scripts/release.mjs key"
   },
   "dependencies": {
     "@xterm/addon-fit": "^0.11.0",
