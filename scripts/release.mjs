@@ -112,10 +112,14 @@ sh('git', ['commit', '-q', '-m', `Release ${version}: website download and updat
 sh('git', ['push', 'origin', 'main'], { stdio: 'inherit' });
 sh('npx', ['--yes', 'wrangler', 'deploy'], { cwd: path.join(ROOT, 'site-worker'), stdio: 'inherit' });
 
+// The website caches downloads.json for 60 s, so give it a moment before checking.
 let live = {};
-try {
-  live = await (await fetch(`${SITE}/downloads.json`, { cache: 'no-store' })).json();
-} catch {}
+for (let i = 0; i < 18 && live.version !== version; i++) {
+  if (i) await new Promise((r) => setTimeout(r, 5000));
+  try {
+    live = await (await fetch(`${SITE}/downloads.json`, { cache: 'no-store' })).json();
+  } catch {}
+}
 console.log(
   live.version === version
     ? `\n\x1b[32mDone.\x1b[0m ${SITE} offers ${version}; installed apps will pick it up.`
