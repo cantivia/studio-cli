@@ -73,6 +73,7 @@ export function SettingsMenu({ onClose }: { onClose: () => void }) {
         <Smartphone size={15} className="text-faint" />
       </button>
       <Toggle label="Desktop notifications" hint="When Studio is in the background" on={desktop} onClick={toggleDesktop} />
+      <Updates />
     </motion.div>
   );
 }
@@ -112,5 +113,56 @@ function IntroToggle() {
         setOn(!on);
       }}
     />
+  );
+}
+
+type UpdateInfo = { inApp: boolean; auto: boolean; state?: string; current?: string; latest?: string; progress?: number; error?: string };
+
+/** Version and automatic updates (done by the Mac app, see electron/updater.cjs). */
+function Updates() {
+  const [u, setU] = useState<UpdateInfo | null>(null);
+  useEffect(() => {
+    const load = () => fetch('/api/update').then((r) => r.json()).then(setU).catch(() => {});
+    load();
+    const t = setInterval(load, 2000);
+    return () => clearInterval(t);
+  }, []);
+  const send = (body: object) =>
+    fetch('/api/update', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) })
+      .then((r) => r.json())
+      .then(setU)
+      .catch(() => {});
+  if (!u) return null;
+  if (!u.inApp) return <div className="px-3 py-2 text-[12px] text-muted">Updates come with the Mac app</div>;
+  const line =
+    u.state === 'checking' ? 'Checking for updates…'
+    : u.state === 'downloading' ? `Downloading ${u.latest}${u.progress ? ` · ${u.progress}%` : ''}`
+    : u.state === 'ready' ? `${u.latest} is ready${u.auto ? ' · installs when you’re idle' : ''}`
+    : u.state === 'installing' ? `Installing ${u.latest}…`
+    : u.state === 'move' ? 'Move Studio CLI to Applications to get updates'
+    : u.state === 'error' ? `Couldn’t update: ${u.error}`
+    : 'Up to date';
+  const busy = u.state === 'checking' || u.state === 'downloading' || u.state === 'installing';
+  return (
+    <>
+      <div className="flex items-center gap-3 rounded-xl px-3 py-2.5">
+        <div className="min-w-0 flex-1">
+          <div className="text-[13px] font-medium text-ink">Studio {u.current}</div>
+          <div className="truncate text-[12px] text-muted" title={line}>{line}</div>
+        </div>
+        {u.state === 'ready' ? (
+          <button onClick={() => send({ install: true })} className="shrink-0 rounded-full bg-violet px-3 py-1 text-[12px] font-medium text-white">
+            Update now
+          </button>
+        ) : (
+          u.state !== 'move' && (
+            <button disabled={busy} onClick={() => send({ check: true })} className="shrink-0 rounded-full border border-[var(--line)] px-3 py-1 text-[12px] font-medium text-ink hover:bg-fill disabled:opacity-50">
+              Check now
+            </button>
+          )
+        )}
+      </div>
+      <Toggle label="Update automatically" hint="Restarts Studio when you’re idle; terminals keep running" on={u.auto} onClick={() => send({ auto: !u.auto })} />
+    </>
   );
 }
