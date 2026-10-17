@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
   Activity as ActivityIcon,
+  Users,
   ArrowUp,
   BookOpen,
   ChevronRight,
@@ -24,23 +25,27 @@ import { useStore } from '../lib/store';
 import { useRuns } from '../lib/runs';
 import { api, timeAgo, uid } from '../lib/api';
 import { focusTerm } from '../lib/terms';
-import type { Activity, SessionSummary, SlashCommand, Workflow } from '../lib/types';
+import type { Activity, ClaudeLink, SessionSummary, SlashCommand, Share, Workflow } from '../lib/types';
+import { panes } from '../lib/layout';
+import { ConnectionCard } from './Shared';
 import { Swatches } from './Swatches';
 import { alpha, hue, nextHue } from '../lib/colors';
 
 const ease = [0.22, 1, 0.36, 1] as const;
 
-type Tab = 'workflows' | 'activity' | 'skills' | 'history';
+type Tab = 'workflows' | 'activity' | 'skills' | 'history' | 'teammate';
 const TABS: { id: Tab; label: string; icon: typeof Wand2 }[] = [
   { id: 'workflows', label: 'Workflows', icon: Wand2 },
   { id: 'activity', label: 'Activity', icon: ActivityIcon },
   { id: 'skills', label: 'Skills', icon: BookOpen },
   { id: 'history', label: 'History', icon: History },
+  { id: 'teammate', label: 'Teammate', icon: Users },
 ];
 
 /**
  * Side panel for the focused Claude pane in a workspace: saved workflows, a live
- * feed of what Claude is doing, skills and slash commands, and earlier conversations.
+ * feed of what Claude is doing, skills and slash commands, earlier conversations,
+ * and a connection to a teammate's Claude (server/claude-links.ts).
  */
 export function ClaudePanel({ termId, cwd, onClose }: { termId: string | null; cwd: string; onClose: () => void }) {
   const [tab, setTab] = useState<Tab>('workflows');
@@ -59,7 +64,8 @@ export function ClaudePanel({ termId, cwd, onClose }: { termId: string | null; c
           >
             {tab === t.id && <motion.span layoutId="claude-panel-tab" className="absolute inset-0 rounded-xl bg-white shadow-sm" transition={{ duration: 0.35, ease }} />}
             <t.icon size={12} className="relative" />
-            <span className="relative">{t.label}</span>
+            {/* Five tabs don't fit with every label: the others show their icon (and a tooltip). */}
+            {tab === t.id && <span className="relative">{t.label}</span>}
           </button>
         ))}
         <button onClick={onClose} title="Hide panel" className="grid h-7 w-7 shrink-0 place-items-center rounded-lg text-faint hover:bg-white/70 hover:text-ink">
@@ -71,6 +77,7 @@ export function ClaudePanel({ termId, cwd, onClose }: { termId: string | null; c
         {tab === 'activity' && <ActivityFeed activity={activity} />}
         {tab === 'skills' && <Skills termId={termId} cwd={cwd} />}
         {tab === 'history' && <SessionHistory cwd={cwd} />}
+        {tab === 'teammate' && <Teammate termId={termId} />}
       </div>
     </div>
   );
@@ -555,6 +562,97 @@ function SessionHistory({ cwd }: { cwd: string }) {
           </div>
         </button>
       ))}
+    </div>
+  );
+}
+
+/** Connect this Claude with a teammate's (each on its own computer); they talk with studio tell / studio peek. */
+function Teammate({ termId }: { termId: string | null }) {
+  const paneId = useStore((s) => {
+    for (const w of s.workspaces) for (const p of panes(w.root)) if (p.kind === 'terminal' && p.termId && p.termId === termId) return p.id;
+    return null;
+  });
+  const set = useStore((s) => s.set);
+  const [links, setLinks] = useState<ClaudeLink[] | null>(null);
+  const [shares, setShares] = useState<{ remote: boolean; links: Share[] } | null>(null);
+  const [copied, setCopied] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const load = () => {
+    api.get<ClaudeLink[]>('/api/claude-links').then(setLinks).catch(() => {});
+    api.get<{ remote: boolean; links: Share[] }>('/api/shares').then(setShares).catch(() => {});
+  };
+  useEffect(() => {
+    load();
+    const t = setInterval(load, 2000);
+    return () => clearInterval(t);
+  }, []);
+  const mine = links?.find((l) => l.paneId === paneId);
+  const url = mine && shares?.links.find((s) => s.token === mine.id)?.url;
+  const copy = (u: string) => {
+    navigator.clipboard.writeText(u).catch(() => {});
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1600);
+  };
+  const invite = async () => {
+    setError(null);
+    try {
+      const s = await api.post<Share>('/api/claude-links/invite', { paneId });
+      copy(s.url);
+      load();
+    } catch (e) {
+      setError(String((e as Error).message || e));
+    }
+  };
+  if (!paneId) return <div className="p-4 text-[12px] text-muted">Open Claude in a pane to connect it with a teammate’s Claude.</div>;
+  if (!links) return null;
+  return (
+    <div className="h-full overflow-y-auto p-3">
+      {mine && (mine.partner || mine.side === 'guest') ? (
+        <>
+          <ConnectionCard link={mine} onChange={load} showLog />
+          <p className="mt-3 px-1 text-[11.5px] leading-relaxed text-faint">
+            Your Claude sends with <code className="font-mono">studio tell "…"</code> and looks with <code className="font-mono">studio peek</code>. After 20 messages with nobody typing, the connection pauses itself.
+          </p>
+        </>
+      ) : (
+        <div className="px-1 pt-1">
+          <div className="text-[13px] font-medium text-ink">Work with a teammate’s Claude</div>
+          <p className="mt-1.5 text-[12px] leading-relaxed text-muted">
+            Make a link and send it to a teammate. They open it in their own Studio (Shared → Open a link) and pick one of their Claudes. The two can then message each other and see each other’s work. Each stays on its own
+            computer.
+          </p>
+          {shares && !shares.remote && (
+            <div className="mt-3 rounded-xl bg-[#f59e0b]/10 px-3 py-2 text-[12px] leading-relaxed text-[#92400e]">
+              Links only work on this computer until you{' '}
+              <button onClick={() => set({ remoteOpen: true })} className="font-semibold underline underline-offset-2">
+                turn on phone &amp; remote access
+              </button>
+              .
+            </div>
+          )}
+          {mine && url ? (
+            <div className="mt-3 rounded-xl border border-[var(--line)] bg-white/60 p-3">
+              <div className="text-[12px] text-muted">Waiting for your teammate to open this link:</div>
+              <div className="mt-1 truncate font-mono text-[11px] text-faint" title={url}>
+                {url.replace(/^https?:\/\//, '')}
+              </div>
+              <div className="mt-2 flex gap-1.5">
+                <button onClick={() => copy(url)} className="rounded-full bg-ink px-3 py-1.5 text-[12px] font-medium text-white transition hover:bg-violet">
+                  {copied ? 'Copied' : 'Copy link'}
+                </button>
+                <button onClick={() => api.del(`/api/claude-links/${mine.id}`).then(load)} className="rounded-full px-3 py-1.5 text-[12px] font-medium text-muted hover:bg-white hover:text-ink">
+                  Turn off
+                </button>
+              </div>
+            </div>
+          ) : (
+            <button onClick={invite} className="mt-3 rounded-full bg-ink px-4 py-2 text-[12px] font-medium text-white transition hover:bg-violet">
+              {copied ? 'Link copied' : 'Connect a teammate’s Claude'}
+            </button>
+          )}
+          {error && <div className="mt-3 text-[12px] font-medium text-[#b42318]">{error}</div>}
+        </div>
+      )}
     </div>
   );
 }

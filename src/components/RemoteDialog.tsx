@@ -19,6 +19,12 @@ type Remote = {
 type Device = { id: string; name: string; createdAt: number; lastSeen: number };
 type Pairing = { code: string; expiresAt: number; url: string; qr: string };
 
+async function newPairing(): Promise<Pairing> {
+  const p = await api.post<{ code: string; expiresAt: number; url: string }>('/api/remote/pair');
+  const qr = await QRCode.toString(p.url, { type: 'svg', margin: 1, width: 176, color: { dark: '#1d1d1f', light: '#0000' } });
+  return { ...p, qr };
+}
+
 /** Settings → Phone & remote access: one press gives this computer its own address; then pair phones with a code or QR. */
 export function RemoteDialog() {
   const open = useStore((s) => s.remoteOpen);
@@ -55,6 +61,15 @@ export function RemoteDialog() {
     }, 2000);
     return () => clearInterval(t);
   }, [open, pairing, load]);
+  // Opened from "Add a phone or iPad" (Shared page): go straight to the QR code once phone access is on.
+  const autoPair = useStore((s) => s.remotePair);
+  useEffect(() => {
+    if (!open || !autoPair || info?.mode !== 'pairing' || pairing) return;
+    set({ remotePair: false });
+    newPairing()
+      .then((p) => (setPairing(p), setNow(Date.now())))
+      .catch((e) => setError(String(e.message || e)));
+  }, [open, autoPair, info, pairing, set]);
   // The tunnel takes a few seconds to come up.
   useEffect(() => {
     if (!open || !info?.configured || info.running) return;
@@ -63,7 +78,7 @@ export function RemoteDialog() {
   }, [open, info, load]);
 
   if (!open) return null;
-  const close = () => set({ remoteOpen: false });
+  const close = () => set({ remoteOpen: false, remotePair: false });
   const guard = async (fn: () => Promise<void>) => {
     setBusy(true);
     setError(null);
@@ -94,9 +109,7 @@ export function RemoteDialog() {
     });
   const addPhone = () =>
     guard(async () => {
-      const p = await api.post<{ code: string; expiresAt: number; url: string }>('/api/remote/pair');
-      const qr = await QRCode.toString(p.url, { type: 'svg', margin: 1, width: 176, color: { dark: '#1d1d1f', light: '#0000' } });
-      setPairing({ ...p, qr });
+      setPairing(await newPairing());
       setNow(Date.now());
     });
   const removeDevice = (id: string) => api.del(`/api/remote/devices/${id}`).then(load).catch(() => {});

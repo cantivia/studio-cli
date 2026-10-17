@@ -87,11 +87,28 @@ export type Mode = 'workspaces' | 'office' | 'sessions' | 'shared';
 /** A share link made by this Studio (see server/shares.ts). */
 export type Share = {
   token: string;
-  kind: 'session' | 'workspace';
+  kind: 'session' | 'workspace' | 'pane' | 'claude';
   ref: string;
   title: string;
   createdAt: number;
-  expiresAt: number;
+  /** null: no end date. */
+  expiresAt: number | null;
   canType: boolean;
+  canMessage?: boolean;
   url: string;
+  opens?: { at: number; visitor: string; device: string; country: string | null }[];
+  watching?: { visitor: string; device: string; country: string | null }[];
+};
+
+/** Your Claude talking to a teammate's Claude (server/claude-links.ts). */
+export type ClaudeLink = {
+  id: string;
+  side: 'host' | 'guest';
+  paneId: string;
+  termId: string | null;
+  partner: { name: string; pane: string } | null;
+  online: boolean;
+  paused: boolean;
+  pausedBy: string | null;
+  log: { at: number; dir: 'in' | 'out' | 'note'; text: string }[];
 };

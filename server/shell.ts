@@ -86,7 +86,9 @@ export function shellEnv(shell: string, accent?: string, theme?: string): Record
   return {
     ...(theme === 'light' || theme === 'dark' ? { STUDIO_CLAUDE_THEME: theme } : {}),
     ZDOTDIR: ZSH_DIR,
-    STUDIO_USER_ZDOTDIR: process.env.ZDOTDIR || os.homedir(),
+    // Started from inside a Studio terminal, ZDOTDIR is that Studio's own folder (sourcing it would loop);
+    // the real one is what that Studio remembered.
+    STUDIO_USER_ZDOTDIR: process.env.STUDIO_USER_ZDOTDIR || process.env.ZDOTDIR || os.homedir(),
     ...(accent && /^#[0-9a-f]{6}$/i.test(accent) ? { STUDIO_ACCENT: accent } : {}),
   };
 }

@@ -30,6 +30,8 @@ type UiState = {
   newWorkspaceOpen: boolean;
   /** Settings → Phone & remote access dialog. */
   remoteOpen: boolean;
+  /** Open Phone & remote access straight on the pairing QR code. */
+  remotePair: boolean;
   /** Phone: the sidebar drawer is open. */
   navOpen: boolean;
 };
@@ -95,6 +97,7 @@ export const useStore = create<Store>()(
       notificationsOpen: false,
       newWorkspaceOpen: false,
       remoteOpen: false,
+      remotePair: false,
       navOpen: false,
 
       setServer: (s) => set(s),

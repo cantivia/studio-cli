@@ -223,7 +223,7 @@ export async function join(url: string, paneId: string) {
 
 /** Make (or reuse) the claude link for one of your Claude panes. */
 export async function invite(paneId: string) {
-  return createShare('claude', paneId, `${deps.paneTitle(paneId)} · Claude connection`);
+  return createShare('claude', paneId, deps.paneTitle(paneId));
 }
 
 export async function startLinks(d: LinkDeps) {

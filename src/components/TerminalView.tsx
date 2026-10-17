@@ -1,5 +1,6 @@
 import { useEffect, useReducer, useRef, useState, type ReactNode } from 'react';
-import { ArrowDown, Check, Columns2, GitBranch, Globe, Maximize2, Pencil, Radio, RotateCcw, Rows2, Sparkles, SquareTerminal, X } from 'lucide-react';
+import { ArrowDown, Check, Columns2, GitBranch, Globe, Link2, Maximize2, Pencil, Radio, RotateCcw, Rows2, Sparkles, SquareTerminal, X } from 'lucide-react';
+import { shareLink } from '../lib/share';
 import { useStore } from '../lib/store';
 import { api, basename, tildify } from '../lib/api';
 import { alpha, hue, type Hue } from '../lib/colors';
@@ -199,6 +200,11 @@ export function TerminalView({ pane, focused, visible, onFocus, actions, headerE
             <IconBtn ink={ink} title="Rename terminal" onClick={() => setRenaming(true)}>
               <Pencil size={12} />
             </IconBtn>
+            {actions && (
+              <IconBtn ink={ink} title="Share this pane as a link" onClick={() => shareLink('pane', pane.id).catch(() => {})}>
+                <Link2 size={12} />
+              </IconBtn>
+            )}
             {actions?.split && (
               <>
                 <IconBtn ink={ink} title="Split right (⌘D)" onClick={() => actions.split!('row')}>
