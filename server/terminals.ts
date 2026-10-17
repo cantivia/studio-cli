@@ -351,6 +351,7 @@ export class TerminalManager extends EventEmitter {
         } catch {}
         return;
       }
+      this.emit('input');
       this.host.send({ op: 'write', id, data: msg });
     });
     ws.on('close', () => term.clients.delete(ws));
@@ -359,6 +360,7 @@ export class TerminalManager extends EventEmitter {
   write(id: string, text: string) {
     const term = this.terms.get(id);
     if (!term) return false;
+    this.emit('input');
     this.host.send({ op: 'write', id, data: text });
     return true;
   }

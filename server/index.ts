@@ -18,6 +18,7 @@ import { claimCode, listDevices, newPairingCode, removeAllDevices, removeDevice 
 import { enableRemote, releaseRemote } from './provision.ts';
 import { pairPage } from './pair-page.ts';
 import { createShare, getShare, listShares, revokeShare, updateShare } from './shares.ts';
+import { appReport, noteBusy, noteInput, updateInfo, updateRequest } from './updates.ts';
 import { guestPage } from './share-page.ts';
 import { decodeInvite } from './invite.ts';
 import { managed, startTunnel, stopTunnel, tunnelStatus } from './tunnel.ts';
@@ -71,6 +72,8 @@ function pushNotification(n: TermNotification) {
 
 terms.on('changed', () => broadcast());
 terms.on('notification', pushNotification);
+// Typing (any device) and a busy Claude hold back automatic updates (updates.ts).
+terms.on('input', noteInput);
 
 // ── Background poller: cwd, ports, git, PR, Claude status per terminal ────
 const prevClaudeStatus = new Map<string, string>();
@@ -107,6 +110,7 @@ async function poll() {
     const claudePid = tree.find((pid) => procs.has(pid));
     const cp = claudePid ? procs.get(claudePid)! : null;
     const claude = cp ? { sessionId: cp.sessionId, status: cp.status, name: cp.name, pid: cp.pid, cwd: cp.cwd } : null;
+    if (claude?.status === 'busy') noteBusy();
 
     // Contextful "Claude finished" notifications: cmux's main gap is that the
     // stock notification only says "Claude is waiting for your input".
@@ -420,6 +424,19 @@ app.get(
 app.delete(
   '/api/remote/devices/:id',
   wrap(async (req, res) => (onThisComputer(req) ? res.json({ ok: await removeDevice(String(req.params.id)) }) : res.status(403).json({ error: 'Not allowed' }))),
+);
+// Automatic updates (server/updates.ts): the Mac app reports here; Settings reads and asks.
+app.post(
+  '/api/update/report',
+  wrap(async (req, res) => (onThisComputer(req) ? res.json(await appReport(req.body || {})) : res.status(403).json({ error: 'Not allowed' }))),
+);
+app.get('/api/update', wrap(async (_req, res) => res.json(await updateInfo())));
+app.post(
+  '/api/update',
+  wrap(async (req, res) => {
+    await updateRequest(req.body || {});
+    res.json(await updateInfo());
+  }),
 );
 app.post(
   '/api/remote/join',
