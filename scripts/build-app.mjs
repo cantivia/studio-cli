@@ -10,6 +10,8 @@
  * Signing: with an Apple Developer ID the app signs and notarizes itself (set CSC_LINK / CSC_KEY_PASSWORD or have the
  * certificate in your keychain, plus APPLE_ID, APPLE_APP_SPECIFIC_PASSWORD, APPLE_TEAM_ID). Without one it is only
  * ad-hoc signed, and people must approve it once in System Settings → Privacy & Security.
+ *
+ * Update tests (scripts/test-update.mjs) build a second, newer copy elsewhere: `--version 0.1.5 --arch arm64 --out release/test-out`.
  */
 import { build as esbuild } from 'esbuild';
 import { build as packager, Platform } from 'electron-builder';
@@ -30,6 +32,8 @@ const SPLIT = !args.includes('--universal'); // one smaller file per chip by def
 const ARCHS = archArg ? [archArg] : DIR_ONLY && !args.includes('--universal') ? [process.arch === 'arm64' ? 'arm64' : 'x64'] : ['arm64', 'x64'];
 const UNIVERSAL = !archArg && !SPLIT;
 const pkg = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8'));
+const VERSION = args.includes('--version') ? args[args.indexOf('--version') + 1] : pkg.version;
+const OUT = args.includes('--out') ? path.resolve(args[args.indexOf('--out') + 1]) : path.join(REL, 'out');
 const run = (cmd, a, opts = {}) => execFileSync(cmd, a, { cwd: ROOT, stdio: 'inherit', ...opts });
 const log = (m) => console.log(`\n\x1b[1m${m}\x1b[0m`);
 
@@ -54,15 +58,15 @@ for (const [entry, out] of [['server/index.ts', 'server.mjs'], ['server/pty-host
   });
 }
 fs.cpSync(path.join(ROOT, 'dist'), path.join(STAGE, 'dist'), { recursive: true });
-fs.mkdirSync(path.join(STAGE, 'electron'));
-fs.copyFileSync(path.join(ROOT, 'electron/main.cjs'), path.join(STAGE, 'electron/main.cjs'));
+// The app's main process: everything in electron/ except tests.
+fs.cpSync(path.join(ROOT, 'electron'), path.join(STAGE, 'electron'), { recursive: true, filter: (f) => !f.endsWith('.test.cjs') });
 const layout = 'vendor/pixel-agents/webview-ui/public/assets/default-layout-1.json';
 fs.mkdirSync(path.dirname(path.join(STAGE, layout)), { recursive: true });
 fs.copyFileSync(path.join(ROOT, layout), path.join(STAGE, layout));
 fs.writeFileSync(
   path.join(STAGE, 'package.json'),
   JSON.stringify(
-    { name: 'studio-cli', productName: 'Studio CLI', version: pkg.version, description: 'Terminals and Claude sessions in one place', author: 'Cantivia', main: 'electron/main.cjs', dependencies: { 'node-pty': pkg.dependencies['node-pty'] } },
+    { name: 'studio-cli', productName: 'Studio CLI', version: VERSION, description: 'Terminals and Claude sessions in one place', author: 'Cantivia', main: 'electron/main.cjs', dependencies: { 'node-pty': pkg.dependencies['node-pty'] } },
     null,
     2,
   ),
@@ -106,7 +110,7 @@ await packager({
   config: {
     appId: 'com.cantivia.studio-cli',
     productName: 'Studio CLI',
-    directories: { app: STAGE, output: path.join(REL, 'out') },
+    directories: { app: STAGE, output: OUT },
     asar: false,
     npmRebuild: false,
     nodeGypRebuild: false,
@@ -139,4 +143,4 @@ await packager({
     },
   },
 });
-console.log(`\n\x1b[32mDone.\x1b[0m ${path.join(REL, 'out')}`);
+console.log(`\n\x1b[32mDone.\x1b[0m ${OUT}`);

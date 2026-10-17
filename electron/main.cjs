@@ -10,6 +10,7 @@ const { spawn } = require('node:child_process');
 const fs = require('node:fs');
 const http = require('node:http');
 const path = require('node:path');
+const { createUpdater } = require('./updater.cjs');
 
 const PORT = Number(process.env.STUDIO_PORT || 4600);
 const ORIGIN = `http://127.0.0.1:${PORT}`;
@@ -21,6 +22,8 @@ let quitting = false;
 let blocker = null;
 // STUDIO_HIDDEN=1 (used by automated tests): no window, no Dock icon, nothing appears on screen.
 const HIDDEN = process.env.STUDIO_HIDDEN === '1';
+// After an automatic update the app restarts with --start-hidden if its window was hidden, so it stays out of the way.
+const START_HIDDEN = process.argv.includes('--start-hidden');
 
 const get = (route) =>
   new Promise((resolve) => {
@@ -84,6 +87,18 @@ async function waitForServer() {
   return false;
 }
 
+// Stops the server and waits until it has let go of the port (an update does this before restarting the app).
+function stopServer() {
+  quitting = true;
+  const s = server;
+  if (!s) return Promise.resolve();
+  return new Promise((resolve) => {
+    const t = setTimeout(() => (s.kill('SIGKILL'), resolve()), 5000);
+    s.once('exit', () => (clearTimeout(t), resolve()));
+    s.kill();
+  });
+}
+
 function createWindow() {
   win = new BrowserWindow({
     width: 1360,
@@ -94,7 +109,7 @@ function createWindow() {
     backgroundColor: '#ffffff',
     titleBarStyle: 'hiddenInset',
     trafficLightPosition: { x: 18, y: 14 },
-    show: !HIDDEN,
+    show: !HIDDEN && !START_HIDDEN,
     webPreferences: { contextIsolation: true, sandbox: true, backgroundThrottling: !HIDDEN },
   });
   // Pages opened from Studio: share links (they hand a conversation back to this window) open here;
@@ -187,6 +202,10 @@ const fail = (title, message) => {
   else dialog.showErrorBox(title, message);
 };
 
+// Test copies (they set STUDIO_DATA_DIR) get their own Electron profile, so they never share the installed app's
+// single-instance lock, which would bring its window forward.
+if (process.env.STUDIO_DATA_DIR) app.setPath('userData', path.join(process.env.STUDIO_DATA_DIR, 'electron'));
+
 if (!app.requestSingleInstanceLock()) app.quit();
 else {
   app.on('second-instance', show);
@@ -200,6 +219,9 @@ else {
   app.whenReady().then(async () => {
     if (HIDDEN) app.dock?.hide();
     buildMenu();
+    const updater = createUpdater({ app, origin: ORIGIN, windowHidden: () => !win || !win.isVisible(), stopServer });
+    // Right after an update the old server can take a moment to let go of the port.
+    for (let i = updater.justUpdated() ? 60 : 0; i > 0 && (await portInUse()); i--) await new Promise((r) => setTimeout(r, 250));
     if (await portInUse()) {
       fail('Studio is already running', `Something is already serving Studio on port ${PORT} on this computer, so this app can't start another. Quit the other one first.`);
       return app.quit();
@@ -210,6 +232,7 @@ else {
       return app.quit();
     }
     createWindow();
+    updater.start();
     setInterval(watchPower, 15000);
     watchPower();
     if (process.env.STUDIO_NO_LOGIN_PROMPT !== '1') setTimeout(askAboutLogin, 4000);
