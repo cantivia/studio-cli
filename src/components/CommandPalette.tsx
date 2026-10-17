@@ -55,7 +55,7 @@ export function CommandPalette() {
       ...TERM_THEMES.map((t) => ({
         id: `theme-${t.id}`,
         group: 'Settings',
-        label: `Terminal theme: ${t.name}`,
+        label: `Colour scheme: ${t.name}`,
         hint: s.terminalTheme === t.id ? 'current' : t.hint,
         icon: Moon,
         run: () => s.set({ terminalTheme: t.id }),

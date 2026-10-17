@@ -162,9 +162,9 @@ export function Shared() {
         <p className="mt-2 max-w-xl text-[14px] leading-relaxed text-muted">
           Your Studio, terminals and Claude stay yours. Share a conversation, a live workspace or one pane as a link, or connect your Claude with a teammate’s; the other person opens it from their own Studio.
         </p>
-        {error && <div className="mt-4 rounded-xl bg-[#e5383b]/10 px-4 py-2.5 text-[13px] font-medium text-[#b42318]">{error}</div>}
+        {error && <div className="mt-4 rounded-xl bg-[#e5383b]/10 px-4 py-2.5 text-[13px] font-medium text-danger-ink">{error}</div>}
         {!remote && (
-          <div className="mt-4 rounded-xl bg-[#f59e0b]/10 px-4 py-3 text-[13px] leading-relaxed text-[#92400e]">
+          <div className="mt-4 rounded-xl bg-[#f59e0b]/10 px-4 py-3 text-[13px] leading-relaxed text-warn-ink">
             <b>Links only work on this computer for now.</b>{' '}
             {managed ? (
               <>
@@ -176,7 +176,7 @@ export function Shared() {
               </>
             ) : (
               <>
-                To let other people open them, run <code className="rounded bg-white/70 px-1.5 py-0.5 font-mono text-[12px]">npm run setup</code> in the Studio folder (takes a couple of minutes), which gives you your own secure
+                To let other people open them, run <code className="rounded bg-surface/70 px-1.5 py-0.5 font-mono text-[12px]">npm run setup</code> in the Studio folder (takes a couple of minutes), which gives you your own secure
                 address.
               </>
             )}
@@ -199,7 +199,7 @@ export function Shared() {
             <button
               onClick={openLink}
               disabled={!paste.trim()}
-              className="flex items-center gap-1.5 rounded-full bg-ink px-4 py-2 text-[12px] font-medium text-white transition hover:bg-violet disabled:opacity-40"
+              className="flex items-center gap-1.5 rounded-full bg-ink px-4 py-2 text-[12px] font-medium text-on-ink transition hover:bg-violet disabled:opacity-40"
             >
               <ExternalLink size={12} /> Open
             </button>
@@ -242,12 +242,12 @@ export function Shared() {
                   className="liquid-glass rounded-[20px] p-4"
                 >
                   <div className="flex items-center gap-2 text-[11px] font-medium">
-                    <span className="flex shrink-0 items-center gap-1 rounded-md bg-ink px-1.5 py-0.5 text-white">
+                    <span className="flex shrink-0 items-center gap-1 rounded-md bg-ink px-1.5 py-0.5 text-on-ink">
                       <K.icon size={10} />
                       {K.label}
                     </span>
                     {!!s.watching?.length && (
-                      <span className="flex items-center gap-1 text-[#15803d]">
+                      <span className="flex items-center gap-1 text-success-ink">
                         <span className="h-1.5 w-1.5 rounded-full bg-[#22c55e]" /> {s.watching.length} watching now
                       </span>
                     )}
@@ -267,7 +267,7 @@ export function Shared() {
                     <select
                       value=""
                       onChange={(e) => e.target.value && patch(s, { lasts: e.target.value })}
-                      className="rounded-full border border-[var(--line)] bg-white/70 px-2 py-0.5 text-[12px] text-ink outline-none"
+                      className="rounded-full border border-[var(--line)] bg-surface/70 px-2 py-0.5 text-[12px] text-ink outline-none"
                     >
                       <option value="">{s.expiresAt === null ? 'No end date' : 'Change…'}</option>
                       {LASTS.map((l) => (
@@ -298,7 +298,7 @@ export function Shared() {
                             {w.device}
                             {w.country ? ` · ${w.country}` : ''}
                           </span>
-                          <button onClick={() => kick(s, w.visitor)} className="rounded-full px-2 py-0.5 text-[11px] font-medium text-[#b42318] hover:bg-[#e5383b]/10">
+                          <button onClick={() => kick(s, w.visitor)} className="rounded-full px-2 py-0.5 text-[11px] font-medium text-danger-ink hover:bg-[#e5383b]/10">
                             Kick
                           </button>
                         </div>
@@ -323,13 +323,13 @@ export function Shared() {
                   <div className="mt-3 flex gap-1.5">
                     <button
                       onClick={() => copy(s)}
-                      className="flex items-center gap-1.5 rounded-full bg-ink px-3 py-1.5 text-[12px] font-medium text-white transition hover:bg-violet"
+                      className="flex items-center gap-1.5 rounded-full bg-ink px-3 py-1.5 text-[12px] font-medium text-on-ink transition hover:bg-violet"
                     >
                       {copied === s.token ? <Check size={12} /> : <Copy size={12} />} {copied === s.token ? 'Copied' : 'Copy link'}
                     </button>
                     <button
                       onClick={() => revoke(s)}
-                      className="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[12px] font-medium text-muted hover:bg-white hover:text-ink"
+                      className="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[12px] font-medium text-muted hover:bg-surface hover:text-ink"
                       title="Turn this link off now (anyone watching is dropped)"
                     >
                       <Trash2 size={12} /> Turn off
@@ -356,7 +356,7 @@ export function Shared() {
                 <div className="mb-1.5 text-[12px] font-medium text-muted">Where should Claude work?</div>
                 <DirPicker value={cwd} onChange={setCwd} />
               </div>
-              {error && <div className="mt-4 rounded-xl bg-[#e5383b]/10 px-4 py-2.5 text-[13px] font-medium text-[#b42318]">{error}</div>}
+              {error && <div className="mt-4 rounded-xl bg-[#e5383b]/10 px-4 py-2.5 text-[13px] font-medium text-danger-ink">{error}</div>}
               <div className="mt-6 flex justify-end gap-2">
                 <button onClick={() => setIncoming(null)} className="rounded-full px-4 py-2 text-[13px] font-medium text-muted hover:bg-fill">
                   Cancel
@@ -364,7 +364,7 @@ export function Shared() {
                 <button
                   onClick={continueSession}
                   disabled={busy}
-                  className="rounded-full bg-ink px-5 py-2 text-[13px] font-medium text-white transition hover:bg-violet disabled:opacity-50"
+                  className="rounded-full bg-ink px-5 py-2 text-[13px] font-medium text-on-ink transition hover:bg-violet disabled:opacity-50"
                 >
                   {busy ? 'Opening…' : 'Open in Claude'}
                 </button>
@@ -413,7 +413,7 @@ function Devices() {
                 <Smartphone size={14} className="shrink-0 text-faint" />
                 <span className="font-medium text-ink">{d.name}</span>
                 <span className="min-w-0 flex-1 truncate text-[12px] text-faint">used {timeAgo(d.lastSeen)}</span>
-                <button onClick={() => remove(d.id)} className="rounded-full px-2.5 py-1 text-[12px] font-medium text-muted hover:bg-white hover:text-ink">
+                <button onClick={() => remove(d.id)} className="rounded-full px-2.5 py-1 text-[12px] font-medium text-muted hover:bg-surface hover:text-ink">
                   Remove
                 </button>
               </div>
@@ -422,7 +422,7 @@ function Devices() {
         )}
         <button
           onClick={() => set({ remoteOpen: true, remotePair: true })}
-          className="mt-3 flex items-center gap-1.5 rounded-full bg-ink px-4 py-2 text-[12px] font-medium text-white transition hover:bg-violet"
+          className="mt-3 flex items-center gap-1.5 rounded-full bg-ink px-4 py-2 text-[12px] font-medium text-on-ink transition hover:bg-violet"
         >
           <Smartphone size={12} /> {mode === 'pairing' ? 'Add a phone or iPad' : 'Turn on and add a phone or iPad'}
         </button>
@@ -439,20 +439,20 @@ export function ConnectionCard({ link, onChange, showLog = false }: { link: Clau
   return (
     <div className="liquid-glass rounded-[20px] p-4">
       <div className="flex items-center gap-2 text-[11px] font-medium">
-        <span className="flex shrink-0 items-center gap-1 rounded-md bg-ink px-1.5 py-0.5 text-white">
+        <span className="flex shrink-0 items-center gap-1 rounded-md bg-ink px-1.5 py-0.5 text-on-ink">
           <Bot size={10} /> Claude connection
         </span>
-        <span className={`flex items-center gap-1 ${link.online && !link.paused ? 'text-[#15803d]' : 'text-faint'}`}>
+        <span className={`flex items-center gap-1 ${link.online && !link.paused ? 'text-success-ink' : 'text-faint'}`}>
           <span className={`h-1.5 w-1.5 rounded-full ${link.online && !link.paused ? 'bg-[#22c55e]' : 'bg-[var(--line-strong)]'}`} /> {status}
         </span>
       </div>
       <div className="mt-2.5 text-[14px] font-medium leading-snug text-ink">{link.partner ? `${link.partner.name}’s Claude` : 'Your teammate’s Claude'}</div>
       {link.partner && <div className="mt-0.5 truncate text-[12px] text-muted">{link.partner.pane}</div>}
       <div className="mt-3 flex gap-1.5">
-        <button onClick={pause} className="flex items-center gap-1.5 rounded-full bg-ink px-3 py-1.5 text-[12px] font-medium text-white transition hover:bg-violet">
+        <button onClick={pause} className="flex items-center gap-1.5 rounded-full bg-ink px-3 py-1.5 text-[12px] font-medium text-on-ink transition hover:bg-violet">
           {link.paused ? <Play size={12} /> : <Pause size={12} />} {link.paused ? 'Resume' : 'Pause'}
         </button>
-        <button onClick={drop} className="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[12px] font-medium text-muted hover:bg-white hover:text-ink">
+        <button onClick={drop} className="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[12px] font-medium text-muted hover:bg-surface hover:text-ink">
           <Unplug size={12} /> Disconnect
         </button>
       </div>
@@ -462,7 +462,7 @@ export function ConnectionCard({ link, onChange, showLog = false }: { link: Clau
             <div
               key={i}
               className={`whitespace-pre-wrap break-words rounded-xl px-3 py-2 text-[12px] leading-relaxed ${
-                e.dir === 'note' ? 'text-center text-faint' : e.dir === 'out' ? 'ml-6 bg-[var(--fill)] text-ink' : 'mr-6 bg-[#f7f5ff] text-ink'
+                e.dir === 'note' ? 'text-center text-faint' : e.dir === 'out' ? 'ml-6 bg-[var(--fill)] text-ink' : 'mr-6 bg-violet/10 text-ink'
               }`}
             >
               {e.dir !== 'note' && <div className="mb-0.5 text-[10px] font-semibold uppercase tracking-[0.06em] text-faint">{e.dir === 'out' ? 'Your Claude' : link.partner ? `${link.partner.name}’s Claude` : 'Their Claude'}</div>}
@@ -506,9 +506,9 @@ function JoinDialog({ joining, onClose, onJoined }: { joining: Joining; onClose:
         <div className="mt-5">
           <div className="mb-1.5 text-[12px] font-medium text-muted">Which of your Claudes?</div>
           {claudes.length === 0 ? (
-            <div className="rounded-xl bg-[#f59e0b]/10 px-4 py-3 text-[13px] text-[#92400e]">Start Claude in one of your panes first, then open the link again.</div>
+            <div className="rounded-xl bg-[#f59e0b]/10 px-4 py-3 text-[13px] text-warn-ink">Start Claude in one of your panes first, then open the link again.</div>
           ) : (
-            <select value={chosen} onChange={(e) => setPaneId(e.target.value)} className="w-full rounded-xl border border-[var(--line)] bg-white px-3 py-2 text-[13px] text-ink outline-none">
+            <select value={chosen} onChange={(e) => setPaneId(e.target.value)} className="w-full rounded-xl border border-[var(--line)] bg-surface px-3 py-2 text-[13px] text-ink outline-none">
               {claudes.map((c) => (
                 <option key={c.paneId} value={c.paneId}>
                   {c.label}
@@ -517,12 +517,12 @@ function JoinDialog({ joining, onClose, onJoined }: { joining: Joining; onClose:
             </select>
           )}
         </div>
-        {error && <div className="mt-4 rounded-xl bg-[#e5383b]/10 px-4 py-2.5 text-[13px] font-medium text-[#b42318]">{error}</div>}
+        {error && <div className="mt-4 rounded-xl bg-[#e5383b]/10 px-4 py-2.5 text-[13px] font-medium text-danger-ink">{error}</div>}
         <div className="mt-6 flex justify-end gap-2">
           <button onClick={onClose} className="rounded-full px-4 py-2 text-[13px] font-medium text-muted hover:bg-fill">
             Cancel
           </button>
-          <button onClick={connect} disabled={busy || !chosen} className="rounded-full bg-ink px-5 py-2 text-[13px] font-medium text-white transition hover:bg-violet disabled:opacity-50">
+          <button onClick={connect} disabled={busy || !chosen} className="rounded-full bg-ink px-5 py-2 text-[13px] font-medium text-on-ink transition hover:bg-violet disabled:opacity-50">
             {busy ? 'Connecting…' : 'Connect'}
           </button>
         </div>

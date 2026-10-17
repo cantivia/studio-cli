@@ -107,6 +107,8 @@ const CSS = `
   display: flex; align-items: center; justify-content: center;
   background: #FDFBF7; cursor: default; user-select: none; -webkit-user-select: none;
 }
+/* On a dark scheme the opening animation is drawn on the app's own colours (lib/appTheme.ts). */
+[data-theme="dark"] .studio-intro { --intro-ink: var(--ink); --intro-tag: var(--accent); background: var(--canvas); }
 .studio-intro-stack { display: flex; flex-direction: column; align-items: center; transform: translateY(-3vh); padding: 0 24px; }
 .studio-intro[data-state="leave"] { pointer-events: none; animation: studio-intro-out ${LEAVE_MS}ms ease forwards; }
 .studio-intro[data-state="leave"] .studio-intro-stack { animation: studio-intro-lift ${LEAVE_MS}ms ease forwards; }

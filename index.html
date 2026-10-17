@@ -23,7 +23,23 @@
         } catch (e) {}
       })();
     </script>
-    <style>html[data-intro] body::after { content: ''; position: fixed; inset: 0; background: #FDFBF7; z-index: 2147482000; }</style>
+    <script>
+      // Last time's colour scheme (src/lib/appTheme.ts), painted before the app loads so a dark scheme doesn't flash white.
+      (function () {
+        try {
+          var t = JSON.parse(localStorage.getItem('studio_app_theme') || 'null');
+          if (!t) return;
+          var d = document.documentElement;
+          for (var k in t.vars) d.style.setProperty(k, t.vars[k]);
+          d.setAttribute('data-theme', t.dark ? 'dark' : 'light');
+          d.style.colorScheme = t.dark ? 'dark' : 'light';
+        } catch (e) {}
+      })();
+    </script>
+    <style>
+      html[data-intro] body::after { content: ''; position: fixed; inset: 0; background: #FDFBF7; z-index: 2147482000; }
+      html[data-intro][data-theme='dark'] body::after { background: var(--canvas); }
+    </style>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;450;500;600;650&family=JetBrains+Mono:wght@400;500;600;800&display=swap" />
   </head>

@@ -109,7 +109,8 @@ function createWindow() {
     backgroundColor: '#ffffff',
     titleBarStyle: 'hiddenInset',
     trafficLightPosition: { x: 18, y: 14 },
-    show: !HIDDEN && !START_HIDDEN,
+    // Shown once the page has painted (below), so a dark colour scheme doesn't flash white first.
+    show: false,
     webPreferences: { contextIsolation: true, sandbox: true, backgroundThrottling: !HIDDEN },
   });
   // Pages opened from Studio: share links (they hand a conversation back to this window) open here;
@@ -131,6 +132,9 @@ function createWindow() {
       win.hide();
     }
   });
+  const reveal = () => !HIDDEN && !START_HIDDEN && win && !win.isDestroyed() && !win.isVisible() && win.show();
+  win.once('ready-to-show', reveal);
+  setTimeout(reveal, 3000); // in case the page never paints
   win.loadURL(ORIGIN);
 }
 

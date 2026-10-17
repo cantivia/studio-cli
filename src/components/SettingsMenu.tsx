@@ -34,8 +34,8 @@ export function SettingsMenu({ onClose }: { onClose: () => void }) {
       className="surface absolute bottom-14 left-3 right-3 z-50 rounded-2xl p-2"
     >
       <div className="px-3 pb-1 pt-2">
-        <div className="text-[13px] font-medium text-ink">Terminal theme</div>
-        <div className="text-[12px] text-muted">Colours for every terminal and Claude pane</div>
+        <div className="text-[13px] font-medium text-ink">Colour scheme</div>
+        <div className="text-[12px] text-muted">For the whole app and every terminal</div>
         <div className="mt-2 grid max-h-[232px] grid-cols-1 gap-1 overflow-y-auto pr-0.5">
           {TERM_THEMES.map((t) => {
             const on = t.id === themeId;
@@ -151,7 +151,7 @@ function Updates() {
           <div className="truncate text-[12px] text-muted" title={line}>{line}</div>
         </div>
         {u.state === 'ready' ? (
-          <button onClick={() => send({ install: true })} className="shrink-0 rounded-full bg-violet px-3 py-1 text-[12px] font-medium text-white">
+          <button onClick={() => send({ install: true })} className="shrink-0 rounded-full bg-violet px-3 py-1 text-[12px] font-medium text-on-accent">
             Update now
           </button>
         ) : (

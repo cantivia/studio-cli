@@ -91,6 +91,7 @@ bin/studio               tiny CLI: studio notify | send | ls
 ## Conventions
 
 - Design tokens live in `src/styles.css` (no Tailwind config). Colours: ink `#1d1d1f`, muted `#636366`, accent violet `#6d28d9`, paper terminal `#fbf9f4`, brand beige `#F5F1E8`. Motion easing is `cubic-bezier(0.22, 1, 0.36, 1)`.
+- **The colour scheme colours the whole app** (Settings → Colour scheme, `terminalTheme` in the store). `src/lib/appTheme.ts` turns each scheme (`termThemes.ts`, which has an `accent` per scheme) into the CSS variables of `styles.css`; Paper is the original look value for value, and `index.html` paints last time's scheme before the app loads. So never hard-code app colours: use `bg-surface` (not `bg-white`) for panels and inputs, `text-on-ink` for text on `bg-ink` buttons, `text-on-accent` on `bg-violet`, and `text-danger-ink` / `text-warn-ink` / `text-success-ink` on pale status tints. Exceptions on purpose: browser panes (web pages are white), the QR code box (must stay white to scan), switch knobs, and dark terminal headers.
 - Workspace, workflow and office colours always come from `lib/colors.ts` (`ui` for chrome on white, `glow` for prompts, cursors and anything on dark).
 - Match the surrounding code: short comments that explain why, no comment banners on trivial code, no new dependencies without a reason.
 - Runtime data lives in `~/.studio-cli/` (workflows, office layouts, zsh integration). Never write into `~/.claude/` except through Claude Code itself.

@@ -115,7 +115,7 @@ export function RemoteDialog() {
   const removeDevice = (id: string) => api.del(`/api/remote/devices/${id}`).then(load).catch(() => {});
 
   const left = pairing ? Math.max(0, Math.ceil((pairing.expiresAt - now) / 1000)) : 0;
-  const err = error && <div className="mt-3 rounded-xl bg-[#e5383b]/10 px-4 py-2.5 text-[13px] font-medium text-[#b42318]">{error}</div>;
+  const err = error && <div className="mt-3 rounded-xl bg-[#e5383b]/10 px-4 py-2.5 text-[13px] font-medium text-danger-ink">{error}</div>;
 
   return createPortal(
     <div className="fixed inset-0 z-50 grid place-items-center bg-black/15 backdrop-blur-[3px]" onMouseDown={close}>
@@ -153,7 +153,7 @@ export function RemoteDialog() {
                     <button onClick={close} className="rounded-full px-4 py-2 text-[13px] font-medium text-muted hover:bg-fill">
                       Not now
                     </button>
-                    <button onClick={turnOn} disabled={busy} className="rounded-full bg-ink px-5 py-2 text-[13px] font-medium text-white transition hover:bg-violet disabled:opacity-50">
+                    <button onClick={turnOn} disabled={busy} className="rounded-full bg-ink px-5 py-2 text-[13px] font-medium text-on-ink transition hover:bg-violet disabled:opacity-50">
                       {busy ? 'Setting up…' : 'Turn on phone access'}
                     </button>
                   </div>
@@ -167,7 +167,7 @@ export function RemoteDialog() {
                   placeholder="studio-invite:…"
                   rows={4}
                   spellCheck={false}
-                  className="mt-3 w-full resize-none rounded-2xl border border-[var(--line)] bg-white px-4 py-3 font-mono text-[12px] outline-none focus:border-violet/50"
+                  className="mt-3 w-full resize-none rounded-2xl border border-[var(--line)] bg-surface px-4 py-3 font-mono text-[12px] outline-none focus:border-violet/50"
                 />
                 {err}
                 <div className="mt-5 flex justify-between gap-2">
@@ -177,7 +177,7 @@ export function RemoteDialog() {
                   <button
                     onClick={join}
                     disabled={busy || !code.trim()}
-                    className="rounded-full bg-ink px-5 py-2 text-[13px] font-medium text-white transition hover:bg-violet disabled:opacity-40"
+                    className="rounded-full bg-ink px-5 py-2 text-[13px] font-medium text-on-ink transition hover:bg-violet disabled:opacity-40"
                   >
                     {busy ? 'Connecting…' : 'Connect'}
                   </button>
@@ -194,7 +194,7 @@ export function RemoteDialog() {
               href={`https://${info.host}`}
               target="_blank"
               rel="noreferrer"
-              className="flex items-center justify-between gap-2 rounded-2xl border border-[var(--line)] bg-white px-4 py-3 text-[14px] font-semibold text-ink hover:border-violet/40"
+              className="flex items-center justify-between gap-2 rounded-2xl border border-[var(--line)] bg-surface px-4 py-3 text-[14px] font-semibold text-ink hover:border-violet/40"
             >
               <span className="truncate">{info.host}</span>
               <ExternalLink size={14} className="shrink-0 text-faint" />
@@ -218,12 +218,13 @@ export function RemoteDialog() {
                 {!pairing ? (
                   <>
                     <p className="text-[13px] leading-relaxed text-muted">Only phones you pair can open that address. Pairing takes a few seconds.</p>
-                    <button onClick={addPhone} disabled={busy} className="mt-3 rounded-full bg-ink px-5 py-2 text-[13px] font-medium text-white transition hover:bg-violet disabled:opacity-40">
+                    <button onClick={addPhone} disabled={busy} className="mt-3 rounded-full bg-ink px-5 py-2 text-[13px] font-medium text-on-ink transition hover:bg-violet disabled:opacity-40">
                       Add a phone
                     </button>
                   </>
                 ) : (
                   <div className="flex items-center gap-5">
+                    {/* White on every colour scheme: phones only read dark codes on light. */}
                     <div className="h-[176px] w-[176px] shrink-0 rounded-2xl border border-[var(--line)] bg-white p-1" dangerouslySetInnerHTML={{ __html: pairing.qr }} />
                     <div className="min-w-0">
                       <div className="text-[12px] text-muted">Scan this with your phone’s camera, or open <b className="text-ink">{info.host}/pair</b> and type:</div>
@@ -260,7 +261,7 @@ export function RemoteDialog() {
               <button onClick={disconnect} disabled={busy} className="rounded-full px-3 py-1.5 text-[12px] font-medium text-muted hover:bg-fill hover:text-ink disabled:opacity-50" title="Turns off remote access and signs every phone out">
                 Turn off
               </button>
-              <button onClick={close} className="rounded-full bg-ink px-5 py-2 text-[13px] font-medium text-white hover:bg-violet">
+              <button onClick={close} className="rounded-full bg-ink px-5 py-2 text-[13px] font-medium text-on-ink hover:bg-violet">
                 Done
               </button>
             </div>

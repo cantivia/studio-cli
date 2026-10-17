@@ -37,7 +37,7 @@ export function Sidebar() {
         </div>
         <button
           onClick={() => set({ newWorkspaceOpen: true, navOpen: false })}
-          className="grid h-8 w-8 place-items-center rounded-full bg-ink text-white transition hover:bg-violet active:scale-95"
+          className="grid h-8 w-8 place-items-center rounded-full bg-ink text-on-ink transition hover:bg-violet active:scale-95"
           title="New workspace (⌘⌥N)"
         >
           <Plus size={16} strokeWidth={2.2} />
@@ -79,7 +79,7 @@ export function Sidebar() {
           <Bell size={16} />
           Notifications
           {unread > 0 && (
-            <span className="ml-auto rounded-full bg-violet px-1.5 text-[11px] font-semibold leading-[18px] text-white">{unread}</span>
+            <span className="ml-auto rounded-full bg-violet px-1.5 text-[11px] font-semibold leading-[18px] text-on-accent">{unread}</span>
           )}
         </button>
         <button
@@ -162,7 +162,7 @@ function WorkspaceItem({ ws, index, active, ...dnd }: { ws: Workspace; index: nu
       }}
       onDragEnd={dnd.onDragEnd}
       style={info.unread && !active ? { boxShadow: `0 0 0 1.5px ${color.glow}66` } : undefined}
-      className={`group relative w-full rounded-2xl px-3.5 py-2.5 text-left transition-all duration-300 ${active ? 'surface' : 'hover:bg-white/60'} ${dnd.dragging ? 'opacity-40' : ''}`}
+      className={`group relative w-full rounded-2xl px-3.5 py-2.5 text-left transition-all duration-300 ${active ? 'surface' : 'hover:bg-surface/60'} ${dnd.dragging ? 'opacity-40' : ''}`}
     >
       {dnd.dropLine && (
         <div
@@ -193,7 +193,7 @@ function WorkspaceItem({ ws, index, active, ...dnd }: { ws: Workspace; index: nu
         {info.busy ? (
           <span className="shimmer-text text-[11px] font-semibold">Working</span>
         ) : info.done ? (
-          <span className="flex items-center gap-0.5 rounded-full bg-[#16a34a]/10 px-1.5 text-[11px] font-semibold leading-[18px] text-[#15803d]">
+          <span className="flex items-center gap-0.5 rounded-full bg-[#16a34a]/10 px-1.5 text-[11px] font-semibold leading-[18px] text-success-ink">
             <Check size={10} strokeWidth={3} /> Done
           </span>
         ) : null}
@@ -265,12 +265,12 @@ function WorkspaceEditor({ ws, name, onDone }: { ws: Workspace; name: string; on
           if (e.key === 'Escape') onDone();
           e.stopPropagation();
         }}
-        className="w-full rounded-lg border border-[var(--line)] bg-white px-2.5 py-1.5 text-[13px] font-medium text-ink outline-none focus:border-violet/50"
+        className="w-full rounded-lg border border-[var(--line)] bg-surface px-2.5 py-1.5 text-[13px] font-medium text-ink outline-none focus:border-violet/50"
         placeholder="Workspace name"
       />
       <Swatches size={18} value={ws.color} onChange={(id) => recolor(ws.id, id)} />
       <div className="flex justify-end">
-        <button onClick={save} className="rounded-full bg-ink px-3 py-1 text-[12px] font-medium text-white hover:bg-violet">
+        <button onClick={save} className="rounded-full bg-ink px-3 py-1 text-[12px] font-medium text-on-ink hover:bg-violet">
           Done
         </button>
       </div>

@@ -49,7 +49,7 @@ export function DirPicker({ value, onChange }: { value: string; onChange: (p: st
           {!recent.length && <div className="px-3 py-2 text-[12px] text-faint">No Claude projects yet.</div>}
         </div>
       </div>
-      <div className="flex min-w-0 flex-col rounded-2xl border border-[var(--line)] bg-white">
+      <div className="flex min-w-0 flex-col rounded-2xl border border-[var(--line)] bg-surface">
         <form
           className="flex items-center gap-1 border-b border-[var(--line)] px-2 py-1.5"
           onSubmit={(e) => {

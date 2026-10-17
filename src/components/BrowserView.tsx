@@ -138,7 +138,7 @@ function Blocked({ url, paneId }: { url: string; paneId: string }) {
     window.open(url, `studio-${paneId}`, `popup=yes,width=${w},height=${screen.availHeight},left=${screen.availWidth - w},top=0`);
   };
   return (
-    <div className="grid flex-1 place-items-center bg-white px-6 text-center">
+    <div className="grid flex-1 place-items-center bg-surface px-6 text-center">
       <div className="max-w-sm">
         <div className="mx-auto mb-4 grid h-12 w-12 place-items-center rounded-2xl bg-fill text-muted">
           <ShieldOff size={20} />
@@ -150,7 +150,7 @@ function Blocked({ url, paneId }: { url: string; paneId: string }) {
         <div className="mt-5 flex justify-center gap-2">
           <button
             onClick={openSide}
-            className="flex items-center gap-1.5 rounded-full bg-ink px-4 py-2 text-[13px] font-medium text-white transition hover:bg-violet"
+            className="flex items-center gap-1.5 rounded-full bg-ink px-4 py-2 text-[13px] font-medium text-on-ink transition hover:bg-violet"
           >
             <AppWindow size={14} /> Open in side window
           </button>

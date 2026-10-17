@@ -7,6 +7,8 @@ export type TermThemeDef = {
   hint: string;
   /** Dark themes get light chrome (pane header, buttons) and Claude Code's dark theme. */
   dark: boolean;
+  /** The app's accent colour with this scheme (buttons, focus, highlights; see lib/appTheme.ts). */
+  accent: string;
   /** Pane border colour. */
   line: string;
   colors: Pick<
@@ -25,6 +27,7 @@ export const TERM_THEMES: TermThemeDef[] = [
     name: 'Paper',
     hint: 'Studio’s warm light look',
     dark: false,
+    accent: '#6d28d9',
     line: 'rgba(29, 29, 31, 0.07)',
     colors: {
       background: '#fbf9f4', foreground: '#1d1d1f',
@@ -37,6 +40,7 @@ export const TERM_THEMES: TermThemeDef[] = [
     name: 'Ink black',
     hint: 'Studio’s near-black',
     dark: true,
+    accent: '#8b5cf6',
     line: '#1f1f24',
     colors: {
       background: '#0e0e10', foreground: '#e9e6df',
@@ -49,6 +53,7 @@ export const TERM_THEMES: TermThemeDef[] = [
     name: 'Midnight blue',
     hint: 'Dark navy, like Claude Code',
     dark: true,
+    accent: '#7aa9ff',
     line: '#1e2a44',
     colors: {
       background: '#0b1220', foreground: '#dbe4f5',
@@ -61,6 +66,7 @@ export const TERM_THEMES: TermThemeDef[] = [
     name: 'Dark+',
     hint: 'VS Code default dark',
     dark: true,
+    accent: '#3794ff',
     line: '#2b2b2b',
     colors: {
       background: '#1e1e1e', foreground: '#cccccc',
@@ -73,6 +79,7 @@ export const TERM_THEMES: TermThemeDef[] = [
     name: 'Light+',
     hint: 'VS Code default light',
     dark: false,
+    accent: '#005fb8',
     line: 'rgba(0, 0, 0, 0.1)',
     colors: {
       background: '#ffffff', foreground: '#333333',
@@ -85,6 +92,7 @@ export const TERM_THEMES: TermThemeDef[] = [
     name: 'One Dark',
     hint: 'Atom / VS Code One Dark Pro',
     dark: true,
+    accent: '#c678dd',
     line: '#2c313a',
     colors: {
       background: '#282c34', foreground: '#abb2bf',
@@ -97,6 +105,7 @@ export const TERM_THEMES: TermThemeDef[] = [
     name: 'Monokai',
     hint: 'VS Code Monokai',
     dark: true,
+    accent: '#ae81ff',
     line: '#3e3d32',
     colors: {
       background: '#272822', foreground: '#f8f8f2',
@@ -109,6 +118,7 @@ export const TERM_THEMES: TermThemeDef[] = [
     name: 'Dracula',
     hint: 'Dracula',
     dark: true,
+    accent: '#bd93f9',
     line: '#343746',
     colors: {
       background: '#282a36', foreground: '#f8f8f2',
@@ -121,6 +131,7 @@ export const TERM_THEMES: TermThemeDef[] = [
     name: 'Tokyo Night',
     hint: 'Tokyo Night',
     dark: true,
+    accent: '#7aa2f7',
     line: '#232638',
     colors: {
       background: '#1a1b26', foreground: '#c0caf5',
@@ -133,6 +144,7 @@ export const TERM_THEMES: TermThemeDef[] = [
     name: 'GitHub Dark',
     hint: 'GitHub Dark Default',
     dark: true,
+    accent: '#4493f8',
     line: '#21262d',
     colors: {
       background: '#0d1117', foreground: '#e6edf3',
@@ -145,6 +157,7 @@ export const TERM_THEMES: TermThemeDef[] = [
     name: 'Nord',
     hint: 'Nord',
     dark: true,
+    accent: '#88c0d0',
     line: '#3b4252',
     colors: {
       background: '#2e3440', foreground: '#d8dee9',
@@ -157,6 +170,7 @@ export const TERM_THEMES: TermThemeDef[] = [
     name: 'Solarized Dark',
     hint: 'VS Code Solarized Dark',
     dark: true,
+    accent: '#268bd2',
     line: '#0b4350',
     colors: {
       background: '#002b36', foreground: '#93a1a1',
@@ -169,6 +183,7 @@ export const TERM_THEMES: TermThemeDef[] = [
     name: 'Solarized Light',
     hint: 'VS Code Solarized Light',
     dark: false,
+    accent: '#268bd2',
     line: 'rgba(101, 123, 131, 0.25)',
     colors: {
       background: '#fdf6e3', foreground: '#586e75',

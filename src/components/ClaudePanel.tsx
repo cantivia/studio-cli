@@ -62,13 +62,13 @@ export function ClaudePanel({ termId, cwd, onClose }: { termId: string | null; c
               tab === t.id ? 'text-ink' : 'text-muted hover:text-ink'
             }`}
           >
-            {tab === t.id && <motion.span layoutId="claude-panel-tab" className="absolute inset-0 rounded-xl bg-white shadow-sm" transition={{ duration: 0.35, ease }} />}
+            {tab === t.id && <motion.span layoutId="claude-panel-tab" className="absolute inset-0 rounded-xl bg-surface shadow-sm" transition={{ duration: 0.35, ease }} />}
             <t.icon size={12} className="relative" />
             {/* Five tabs don't fit with every label: the others show their icon (and a tooltip). */}
             {tab === t.id && <span className="relative">{t.label}</span>}
           </button>
         ))}
-        <button onClick={onClose} title="Hide panel" className="grid h-7 w-7 shrink-0 place-items-center rounded-lg text-faint hover:bg-white/70 hover:text-ink">
+        <button onClick={onClose} title="Hide panel" className="grid h-7 w-7 shrink-0 place-items-center rounded-lg text-faint hover:bg-surface/70 hover:text-ink">
           <X size={13} />
         </button>
       </div>
@@ -195,7 +195,7 @@ function WorkflowRail({ termId, cwd }: { termId: string | null; cwd: string }) {
           return (
             <div
               key={w.id}
-              className={`relative overflow-hidden rounded-2xl transition ${open ? 'surface' : 'hover:bg-white/70'}`}
+              className={`relative overflow-hidden rounded-2xl transition ${open ? 'surface' : 'hover:bg-surface/70'}`}
               style={open ? { boxShadow: `0 0 0 1.5px ${alpha(h.glow, 0.45)}, 0 12px 30px -18px ${alpha(h.glow, 0.5)}` } : undefined}
             >
               <span className="absolute bottom-2.5 left-0 top-2.5 w-[3px] rounded-r-full" style={{ background: h.glow }} />
@@ -219,7 +219,7 @@ function WorkflowRail({ termId, cwd }: { termId: string | null; cwd: string }) {
                       onChange={(e) => setInput(e.target.value)}
                       placeholder={w.needsInput}
                       rows={3}
-                      className="mb-2 w-full resize-none rounded-xl border border-[var(--line)] bg-white px-3 py-2 text-[12px] text-ink outline-none focus:border-violet/50"
+                      className="mb-2 w-full resize-none rounded-xl border border-[var(--line)] bg-surface px-3 py-2 text-[12px] text-ink outline-none focus:border-violet/50"
                     />
                   )}
                   <div className="flex items-center gap-1.5">
@@ -252,7 +252,7 @@ function WorkflowRail({ termId, cwd }: { termId: string | null; cwd: string }) {
               <button
                 key={c.name}
                 onClick={() => useStore.getState().addPane('terminal', c.command)}
-                className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-[12px] hover:bg-white/70"
+                className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-[12px] hover:bg-surface/70"
               >
                 <SquareTerminal size={13} className="text-faint" />
                 <span className="font-medium text-ink">{c.name}</span>
@@ -296,7 +296,7 @@ function Composer({ termId }: { termId: string | null }) {
   };
   return (
     <div className="border-t border-black/[0.06] p-3">
-      <div className="rounded-2xl border border-[var(--line)] bg-white p-2 focus-within:border-violet/50">
+      <div className="rounded-2xl border border-[var(--line)] bg-surface p-2 focus-within:border-violet/50">
         <textarea
           value={text}
           onChange={(e) => setText(e.target.value)}
@@ -315,7 +315,7 @@ function Composer({ termId }: { termId: string | null }) {
           <button
             onClick={send}
             disabled={!text.trim()}
-            className="grid h-7 w-7 place-items-center rounded-full bg-ink text-white transition hover:bg-violet disabled:opacity-30"
+            className="grid h-7 w-7 place-items-center rounded-full bg-ink text-on-ink transition hover:bg-violet disabled:opacity-30"
           >
             <ArrowUp size={14} />
           </button>
@@ -417,7 +417,7 @@ function WorkflowEditor({
           <button
             disabled={!valid}
             onClick={() => onSave({ ...w, steps: w.steps.filter((s) => s.trim()) })}
-            className="rounded-full bg-ink px-5 py-2 text-[13px] font-medium text-white hover:bg-violet disabled:opacity-40"
+            className="rounded-full bg-ink px-5 py-2 text-[13px] font-medium text-on-ink hover:bg-violet disabled:opacity-40"
           >
             Save
           </button>
@@ -473,13 +473,13 @@ function ActivityFeed({ activity }: { activity: Activity | null }) {
       {activity.events.map((e) => {
         if (e.kind === 'user')
           return (
-            <div key={e.id} className="ml-6 rounded-2xl rounded-tr-md bg-ink px-3 py-2 text-[12px] leading-relaxed text-white">
+            <div key={e.id} className="ml-6 rounded-2xl rounded-tr-md bg-ink px-3 py-2 text-[12px] leading-relaxed text-on-ink">
               <div className="line-clamp-5 whitespace-pre-wrap">{e.text}</div>
             </div>
           );
         if (e.kind === 'assistant')
           return (
-            <div key={e.id} className="rounded-2xl rounded-tl-md bg-white px-3 py-2 text-[12px] leading-relaxed text-ink shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+            <div key={e.id} className="rounded-2xl rounded-tl-md bg-surface px-3 py-2 text-[12px] leading-relaxed text-ink shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
               <div className="line-clamp-6 whitespace-pre-wrap">{e.text}</div>
             </div>
           );
@@ -511,7 +511,7 @@ function Skills({ termId, cwd }: { termId: string | null; cwd: string }) {
   return (
     <div className="flex h-full flex-col">
       <div className="px-3 pb-2">
-        <div className="flex items-center gap-2 rounded-xl bg-white px-3 py-1.5">
+        <div className="flex items-center gap-2 rounded-xl bg-surface px-3 py-1.5">
           <Search size={13} className="text-faint" />
           <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search skills & commands" className="flex-1 bg-transparent text-[12px] outline-none" />
         </div>
@@ -525,7 +525,7 @@ function Skills({ termId, cwd }: { termId: string | null; cwd: string }) {
               api.send(termId, `/${c.name} `, false);
               focusTerm(termId);
             }}
-            className="w-full rounded-xl px-3 py-2 text-left hover:bg-white/80"
+            className="w-full rounded-xl px-3 py-2 text-left hover:bg-surface/80"
             title="Insert into Claude's prompt"
           >
             <div className="flex items-center gap-2">
@@ -554,7 +554,7 @@ function SessionHistory({ cwd }: { cwd: string }) {
           key={s.sessionId}
           onClick={() => addPane('terminal', `claude --resume ${s.sessionId}`)}
           title="Reopen this conversation in a new pane"
-          className="w-full rounded-xl px-3 py-2 text-left hover:bg-white/80"
+          className="w-full rounded-xl px-3 py-2 text-left hover:bg-surface/80"
         >
           <div className="line-clamp-2 text-[12px] font-medium leading-snug text-ink">{s.title}</div>
           <div className="mt-0.5 text-[11px] text-faint">
@@ -622,7 +622,7 @@ function Teammate({ termId }: { termId: string | null }) {
             computer.
           </p>
           {shares && !shares.remote && (
-            <div className="mt-3 rounded-xl bg-[#f59e0b]/10 px-3 py-2 text-[12px] leading-relaxed text-[#92400e]">
+            <div className="mt-3 rounded-xl bg-[#f59e0b]/10 px-3 py-2 text-[12px] leading-relaxed text-warn-ink">
               Links only work on this computer until you{' '}
               <button onClick={() => set({ remoteOpen: true })} className="font-semibold underline underline-offset-2">
                 turn on phone &amp; remote access
@@ -631,26 +631,26 @@ function Teammate({ termId }: { termId: string | null }) {
             </div>
           )}
           {mine && url ? (
-            <div className="mt-3 rounded-xl border border-[var(--line)] bg-white/60 p-3">
+            <div className="mt-3 rounded-xl border border-[var(--line)] bg-surface/60 p-3">
               <div className="text-[12px] text-muted">Waiting for your teammate to open this link:</div>
               <div className="mt-1 truncate font-mono text-[11px] text-faint" title={url}>
                 {url.replace(/^https?:\/\//, '')}
               </div>
               <div className="mt-2 flex gap-1.5">
-                <button onClick={() => copy(url)} className="rounded-full bg-ink px-3 py-1.5 text-[12px] font-medium text-white transition hover:bg-violet">
+                <button onClick={() => copy(url)} className="rounded-full bg-ink px-3 py-1.5 text-[12px] font-medium text-on-ink transition hover:bg-violet">
                   {copied ? 'Copied' : 'Copy link'}
                 </button>
-                <button onClick={() => api.del(`/api/claude-links/${mine.id}`).then(load)} className="rounded-full px-3 py-1.5 text-[12px] font-medium text-muted hover:bg-white hover:text-ink">
+                <button onClick={() => api.del(`/api/claude-links/${mine.id}`).then(load)} className="rounded-full px-3 py-1.5 text-[12px] font-medium text-muted hover:bg-surface hover:text-ink">
                   Turn off
                 </button>
               </div>
             </div>
           ) : (
-            <button onClick={invite} className="mt-3 rounded-full bg-ink px-4 py-2 text-[12px] font-medium text-white transition hover:bg-violet">
+            <button onClick={invite} className="mt-3 rounded-full bg-ink px-4 py-2 text-[12px] font-medium text-on-ink transition hover:bg-violet">
               {copied ? 'Link copied' : 'Connect a teammate’s Claude'}
             </button>
           )}
-          {error && <div className="mt-3 text-[12px] font-medium text-[#b42318]">{error}</div>}
+          {error && <div className="mt-3 text-[12px] font-medium text-danger-ink">{error}</div>}
         </div>
       )}
     </div>

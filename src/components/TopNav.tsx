@@ -55,7 +55,7 @@ export function TopNav() {
               onClick={() => setMode(t.id)}
               title={t.label}
               className={`relative flex items-center gap-2 rounded-full ${phone ? 'px-3.5 py-2' : 'px-4 py-1.5'} text-[13px] font-medium transition-colors duration-300 ${
-                active ? 'text-white' : 'text-muted hover:text-ink'
+                active ? 'text-on-ink' : 'text-muted hover:text-ink'
               }`}
             >
               {active && (
@@ -90,7 +90,7 @@ export function TopNav() {
         >
           <Bell size={15} />
           {unread > 0 && (
-            <span className="absolute -right-1 -top-1 min-w-[17px] rounded-full bg-violet px-1 text-center text-[10px] font-semibold leading-[17px] text-white">
+            <span className="absolute -right-1 -top-1 min-w-[17px] rounded-full bg-violet px-1 text-center text-[10px] font-semibold leading-[17px] text-on-accent">
               {unread}
             </span>
           )}

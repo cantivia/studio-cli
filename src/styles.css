@@ -1,7 +1,8 @@
 @import 'tailwindcss';
 
 /* Cantivia design language: matte white field, #1d1d1f ink, Apple greys, one
-   disciplined violet, liquid-glass surfaces over a slow violet ink layer. */
+   disciplined violet, liquid-glass surfaces over a slow violet ink layer.
+   These are Paper's values; the scheme picked in Settings replaces them at runtime (lib/appTheme.ts). */
 @theme inline {
   --font-sans: 'Inter', ui-sans-serif, system-ui, -apple-system, sans-serif;
   --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
@@ -11,6 +12,12 @@
   --color-line: var(--line);
   --color-fill: var(--fill);
   --color-canvas: var(--canvas);
+  --color-surface: var(--surface);
+  --color-on-ink: var(--on-ink);
+  --color-on-accent: var(--on-accent);
+  --color-danger-ink: var(--danger-ink);
+  --color-warn-ink: var(--warn-ink);
+  --color-success-ink: var(--success-ink);
   --color-violet: var(--accent);
   --color-violet-deep: var(--accent-hover);
   --color-success: var(--success);
@@ -20,7 +27,18 @@
 
 :root {
   --canvas: #ffffff;
+  /* Panels, cards, inputs. */
+  --surface: #ffffff;
   --ink: #1d1d1f;
+  /* Text on an ink-coloured button, and on the accent. */
+  --on-ink: #ffffff;
+  --on-accent: #ffffff;
+  /* The bright edge of glass panels. */
+  --glass-edge: rgba(255, 255, 255, 0.85);
+  /* Readable red, amber and green text on their pale tints. */
+  --danger-ink: #b42318;
+  --warn-ink: #92400e;
+  --success-ink: #15803d;
   --muted: #636366;
   --faint: #8e8e93;
   --line: #e5e5ea;
@@ -54,12 +72,12 @@ body,
 }
 
 ::selection {
-  background: rgba(109, 40, 217, 0.14);
+  background: var(--accent-glow);
 }
 
 * {
   scrollbar-width: thin;
-  scrollbar-color: rgba(0, 0, 0, 0.14) transparent;
+  scrollbar-color: color-mix(in srgb, var(--ink) 14%, transparent) transparent;
 }
 
 button {
@@ -68,7 +86,7 @@ button {
 
 button:focus-visible,
 a:focus-visible {
-  outline: 2px solid rgba(109, 40, 217, 0.45);
+  outline: 2px solid color-mix(in srgb, var(--accent) 45%, transparent);
   outline-offset: 2px;
 }
 
@@ -88,13 +106,13 @@ a:focus-visible {
 /* ── Liquid glass ─────────────────────────────────────────────────────────── */
 .liquid-glass {
   position: relative;
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.84), rgba(255, 255, 255, 0.66));
+  background: linear-gradient(135deg, color-mix(in srgb, var(--surface) 84%, transparent), color-mix(in srgb, var(--surface) 66%, transparent));
   backdrop-filter: blur(14px) saturate(140%);
   -webkit-backdrop-filter: blur(14px) saturate(140%);
-  border: 1px solid rgba(255, 255, 255, 0.7);
+  border: 1px solid color-mix(in srgb, var(--glass-edge) 82%, transparent);
   box-shadow:
     0 8px 30px -12px rgba(17, 12, 46, 0.14),
-    inset 0 1px 0 rgba(255, 255, 255, 0.85);
+    inset 0 1px 0 var(--glass-edge);
 }
 .liquid-glass::before {
   content: '';
@@ -102,11 +120,11 @@ a:focus-visible {
   inset: 0;
   border-radius: inherit;
   pointer-events: none;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.6), transparent 16px);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--glass-edge) 70%, transparent), transparent 16px);
 }
 
 .surface {
-  background: #fff;
+  background: var(--surface);
   border: 1px solid var(--line);
   box-shadow:
     0 1px 2px rgba(0, 0, 0, 0.04),
@@ -232,21 +250,21 @@ a:focus-visible {
 }
 .divider:hover::after,
 .divider.dragging::after {
-  background: rgba(109, 40, 217, 0.55);
+  background: color-mix(in srgb, var(--accent) 55%, transparent);
 }
 
 /* ── Status dots ──────────────────────────────────────────────────────────── */
 .dot-busy {
   background: var(--accent);
-  box-shadow: 0 0 0 0 rgba(109, 40, 217, 0.5);
+  box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 50%, transparent);
   animation: pulse 1.6s var(--ease) infinite;
 }
 @keyframes pulse {
   70% {
-    box-shadow: 0 0 0 6px rgba(109, 40, 217, 0);
+    box-shadow: 0 0 0 6px color-mix(in srgb, var(--accent) 0%, transparent);
   }
   100% {
-    box-shadow: 0 0 0 0 rgba(109, 40, 217, 0);
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 0%, transparent);
   }
 }
 
@@ -309,7 +327,7 @@ kbd {
   width: 100%;
   border-radius: 12px;
   border: 1px solid var(--line);
-  background: #fff;
+  background: var(--surface);
   padding: 8px 12px;
   font-size: 13px;
   color: var(--ink);
@@ -317,7 +335,7 @@ kbd {
   transition: border-color 0.3s var(--ease);
 }
 .input:focus {
-  border-color: rgba(109, 40, 217, 0.5);
+  border-color: color-mix(in srgb, var(--accent) 50%, transparent);
 }
 
 /* ── Installed app: window controls overlay ─────────────────────────────────

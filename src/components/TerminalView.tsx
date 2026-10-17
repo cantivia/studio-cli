@@ -242,7 +242,7 @@ export function TerminalView({ pane, focused, visible, onFocus, actions, headerE
             <div className="text-sm font-semibold text-ink">{error ? "Couldn't start the terminal" : 'Process exited'}</div>
             {error && <div className="mt-1 max-w-xs text-[12px] text-muted">{error}</div>}
             <div className="mt-4 flex justify-center gap-2">
-              <button onClick={restart} className="flex items-center gap-1.5 rounded-full bg-ink px-4 py-1.5 text-[13px] font-medium text-white hover:bg-violet">
+              <button onClick={restart} className="flex items-center gap-1.5 rounded-full bg-ink px-4 py-1.5 text-[13px] font-medium text-on-ink hover:bg-violet">
                 <RotateCcw size={13} /> Restart
               </button>
               {actions?.close && (
@@ -343,7 +343,7 @@ export function ClaudeState({ busy, done, ink }: { busy: boolean; done: boolean;
   if (busy) return <span className="shimmer-text font-medium">Working…</span>;
   if (done)
     return (
-      <span className={`flex items-center gap-1 rounded-full px-2 py-[2px] text-[11px] font-semibold ${ink ? 'bg-[#22c55e]/15 text-[#4ade80]' : 'bg-[#16a34a]/10 text-[#15803d]'}`}>
+      <span className={`flex items-center gap-1 rounded-full px-2 py-[2px] text-[11px] font-semibold ${ink ? 'bg-[#22c55e]/15 text-[#4ade80]' : 'bg-[#16a34a]/10 text-success-ink'}`}>
         <Check size={11} strokeWidth={3} /> Done
       </span>
     );

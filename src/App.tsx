@@ -3,6 +3,7 @@ import { useStore, allTerminalPanes } from './lib/store';
 import { api } from './lib/api';
 import type { Notification } from './lib/types';
 import { setTheme } from './lib/terms';
+import { applyAppTheme } from './lib/appTheme';
 import { hue, nextHue } from './lib/colors';
 import { panes } from './lib/layout';
 import type { Pane } from './lib/types';
@@ -148,7 +149,11 @@ export default function App() {
   const navOpen = useStore((s) => s.navOpen);
   const set = useStore((s) => s.set);
 
-  useEffect(() => setTheme(termTheme), [termTheme]);
+  // One colour scheme for the terminals and the whole app.
+  useEffect(() => {
+    setTheme(termTheme);
+    applyAppTheme(termTheme);
+  }, [termTheme]);
   useOfficeSync();
   useWorkflowAutoAdvance();
 

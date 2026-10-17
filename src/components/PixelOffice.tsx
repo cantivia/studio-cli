@@ -60,7 +60,7 @@ export function PixelOffice() {
               key={o.key}
               onClick={() => select(o.key)}
               className={`flex h-8 shrink-0 items-center gap-2 rounded-full pl-2.5 pr-3 text-[12px] font-medium transition ${
-                on ? 'surface text-ink' : 'text-muted hover:bg-white/70 hover:text-ink'
+                on ? 'surface text-ink' : 'text-muted hover:bg-surface/70 hover:text-ink'
               }`}
             >
               {o.icon === 'all' ? (
@@ -79,7 +79,7 @@ export function PixelOffice() {
         <span className="shrink-0 text-[11px] text-faint">Click a character to jump to its terminal</span>
         <button
           onClick={() => setNonce((n) => ({ ...n, [active]: (n[active] || 0) + 1 }))}
-          className="grid h-8 w-8 shrink-0 place-items-center rounded-full text-muted hover:bg-white/70 hover:text-ink"
+          className="grid h-8 w-8 shrink-0 place-items-center rounded-full text-muted hover:bg-surface/70 hover:text-ink"
           title="Reload office"
         >
           <RotateCw size={13} />

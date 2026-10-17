@@ -49,7 +49,7 @@ export function NotificationPanel() {
                     else api.markRead({ ids: [n.id] });
                     close();
                   }}
-                  className={`w-full rounded-2xl px-4 py-3 text-left transition ${n.read ? 'hover:bg-white/70' : 'surface'}`}
+                  className={`w-full rounded-2xl px-4 py-3 text-left transition ${n.read ? 'hover:bg-surface/70' : 'surface'}`}
                 >
                   <div className="flex items-center gap-2">
                     {!n.read && <span className="h-1.5 w-1.5 rounded-full bg-violet" />}

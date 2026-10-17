@@ -69,7 +69,7 @@ function Toolbar({ ws }: { ws: Workspace }) {
   const terminals = all.filter((p) => p.kind === 'terminal').length;
   const h = hue(ws.color);
   const btn =
-    'flex h-8 items-center gap-1.5 rounded-full px-3 text-[12px] font-medium text-muted transition hover:bg-white hover:text-ink hover:shadow-sm';
+    'flex h-8 items-center gap-1.5 rounded-full px-3 text-[12px] font-medium text-muted transition hover:bg-surface hover:text-ink hover:shadow-sm';
   return (
     <div className="mb-2.5 flex h-9 shrink-0 items-center gap-1">
       <span className="mr-1 h-2.5 w-2.5 rounded-full" style={{ background: h.glow }} />
@@ -152,7 +152,7 @@ function PhoneToolbar({ ws }: { ws: Workspace }) {
               <button
                 key={p.id}
                 onClick={() => focusPane(ws.id, p.id)}
-                className={`flex h-8 shrink-0 items-center gap-1.5 rounded-full px-3 text-[12.5px] font-medium transition ${active ? 'text-white' : 'bg-white/70 text-muted'}`}
+                className={`flex h-8 shrink-0 items-center gap-1.5 rounded-full px-3 text-[12.5px] font-medium transition ${active ? 'text-white' : 'bg-surface/70 text-muted'}`}
                 style={active ? { background: h.ui } : undefined}
               >
                 <Icon size={13} />
@@ -302,7 +302,7 @@ function EmptyState() {
         <ol className="mt-7 space-y-2.5">
           {steps.map((st, i) => (
             <li key={st.title} data-testid="setup-step" className={`liquid-glass flex items-center gap-4 rounded-[20px] px-5 py-4 transition ${st.done ? 'opacity-70' : ''}`}>
-              <span className={`grid h-8 w-8 shrink-0 place-items-center rounded-full text-[13px] font-semibold ${st.done ? 'bg-[#16a34a] text-white' : 'bg-ink text-white'}`}>
+              <span className={`grid h-8 w-8 shrink-0 place-items-center rounded-full text-[13px] font-semibold ${st.done ? 'bg-[#16a34a] text-on-ink' : 'bg-ink text-on-ink'}`}>
                 {st.done ? <Check size={15} strokeWidth={3} /> : i + 1}
               </span>
               <div className="min-w-0 flex-1">
@@ -315,7 +315,7 @@ function EmptyState() {
               {st.action && !st.done && (
                 <button
                   onClick={st.action.run}
-                  className={`shrink-0 rounded-full px-4 py-2 text-[13px] font-medium transition active:scale-[0.98] ${st.action.primary ? 'bg-ink text-white hover:bg-violet' : 'text-muted hover:bg-white hover:text-ink'}`}
+                  className={`shrink-0 rounded-full px-4 py-2 text-[13px] font-medium transition active:scale-[0.98] ${st.action.primary ? 'bg-ink text-on-ink hover:bg-violet' : 'text-muted hover:bg-surface hover:text-ink'}`}
                 >
                   {st.action.label}
                 </button>

@@ -61,7 +61,7 @@ export function Sessions() {
           </div>
         </div>
 
-        {shareError && <div className="mt-4 rounded-xl bg-[#e5383b]/10 px-4 py-2.5 text-[13px] font-medium text-[#b42318]">{shareError}</div>}
+        {shareError && <div className="mt-4 rounded-xl bg-[#e5383b]/10 px-4 py-2.5 text-[13px] font-medium text-danger-ink">{shareError}</div>}
 
         {groups.map(([label, items]) => (
           <section key={label} className="mt-8">
@@ -76,7 +76,7 @@ export function Sessions() {
                   className="liquid-glass group rounded-[20px] p-4 transition-all duration-500 hover:-translate-y-1 hover:border-violet/30 hover:shadow-[0_26px_56px_-20px_rgba(109,40,217,0.28)]"
                 >
                   <div className="flex items-center gap-2 text-[11px] font-medium">
-                    <span className="max-w-[45%] shrink-0 truncate whitespace-nowrap rounded-md bg-ink px-1.5 py-0.5 text-white">{s.project}</span>
+                    <span className="max-w-[45%] shrink-0 truncate whitespace-nowrap rounded-md bg-ink px-1.5 py-0.5 text-on-ink">{s.project}</span>
                     <span className="truncate text-faint">{tildify(s.cwd, home)}</span>
                     <span className="ml-auto shrink-0 text-faint">{timeAgo(s.updatedAt)}</span>
                   </div>
@@ -84,14 +84,14 @@ export function Sessions() {
                   <div className="mt-3 flex gap-1.5">
                     <button
                       onClick={() => resumeInWorkspace(s)}
-                      className="flex items-center gap-1.5 rounded-full bg-ink px-3 py-1.5 text-[12px] font-medium text-white transition hover:bg-violet"
+                      className="flex items-center gap-1.5 rounded-full bg-ink px-3 py-1.5 text-[12px] font-medium text-on-ink transition hover:bg-violet"
                     >
                       <Sparkles size={12} /> Resume
                     </button>
                     <button
                       onClick={() => addPane('terminal', `claude --resume ${s.sessionId}`)}
                       disabled={!hasWorkspace}
-                      className="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[12px] font-medium text-muted hover:bg-white hover:text-ink disabled:opacity-40"
+                      className="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[12px] font-medium text-muted hover:bg-surface hover:text-ink disabled:opacity-40"
                       title="Open as a new pane in the workspace you have open"
                     >
                       <LayoutGrid size={12} /> Add to current workspace
@@ -101,7 +101,7 @@ export function Sessions() {
                         setShareError(null);
                         shareLink('session', s.sessionId).catch((e) => setShareError(String(e.message || e)));
                       }}
-                      className="ml-auto flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[12px] font-medium text-muted hover:bg-white hover:text-ink"
+                      className="ml-auto flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[12px] font-medium text-muted hover:bg-surface hover:text-ink"
                       title="Copy a link to this conversation. Whoever opens it can continue it in their own Studio."
                     >
                       <Link2 size={12} /> Share link
