@@ -1,5 +1,5 @@
 {
-  "version": "0.1.5",
+  "version": "0.1.6",
   "note": "arm64/x64 are the website's own download addresses (cached by Cloudflare, served by site-worker/worker.mjs); source is where they come from: the latest GitHub release, whose files must be named Studio-CLI-arm64.dmg and Studio-CLI-x64.dmg. Bump version for each release so the cache refreshes. sig holds the release stamps installed apps check before updating (scripts/release.mjs writes them).",
   "universal": null,
   "arm64": "/download/arm64",
@@ -13,7 +13,7 @@
     "x64": "https://github.com/cantivia/studio-cli/releases/latest/download/Studio-CLI-x64.dmg"
   },
   "sig": {
-    "arm64": "ZmYt0Jd+3WesGAqR5aQiSjdcI5ADsVzDeXRQWsdYZYjv5SZnrmdXxKy1hJpaPPnUANUkWcDsqrim1c1OBA8QBA==",
-    "x64": "zsPyVmuSvDavRujlbSuBjgoXkj9cyhqYzqOZrQjNQ6VQzVKez5DIdm3sERt3DYApIoWAb0E4KdtUajlQVQ9ZAQ=="
+    "arm64": "cwMiGuquCZVRQ1FxJU6+mzFXLUVSqn6KEmJ9vXOUYE2QNnq+t1Cq2lcgsKYdwxJ1JIQO0Y4Ii2VTzCuy02xzDw==",
+    "x64": "foLZkohpDQloHO3y5ndpzkijF/YtgpdI4ejaXWesZJZOvz/8FxhRS6koaw2mqx4Gak5qYecEotX+btG+lDrKDA=="
   }
 }
