@@ -17,7 +17,9 @@ import { checkAccess, DEVICE_COOKIE, isAllowedOrigin, remoteConfig } from './acc
 import { claimCode, listDevices, newPairingCode, removeAllDevices, removeDevice } from './devices.ts';
 import { enableRemote, releaseRemote } from './provision.ts';
 import { pairPage } from './pair-page.ts';
-import { createShare, getShare, listShares, revokeShare, updateShare } from './shares.ts';
+import { createShare, getShare, hello, isKicked, kick, listShares, revokeShare, updateShare, watching, type Share } from './shares.ts';
+import * as links from './claude-links.ts';
+import { asPaste, guestText, MAX_MESSAGE } from './links-core.ts';
 import { appReport, noteBusy, noteInput, updateInfo, updateRequest } from './updates.ts';
 import { guestPage } from './share-page.ts';
 import { decodeInvite } from './invite.ts';
@@ -72,8 +74,12 @@ function pushNotification(n: TermNotification) {
 
 terms.on('changed', () => broadcast());
 terms.on('notification', pushNotification);
-// Typing (any device) and a busy Claude hold back automatic updates (updates.ts).
-terms.on('input', noteInput);
+// Typing (any device) and a busy Claude hold back automatic updates (updates.ts); a person typing in a pane also
+// resets the brake on its Claude connection (claude-links.ts).
+terms.on('input', (id: string, human: boolean) => {
+  noteInput();
+  if (human) links.human(id);
+});
 
 // ── Background poller: cwd, ports, git, PR, Claude status per terminal ────
 const prevClaudeStatus = new Map<string, string>();
@@ -338,7 +344,9 @@ const withUrl = (req: express.Request, s: Awaited<ReturnType<typeof createShare>
 app.get(
   '/api/shares',
   // `remote` says whether links can work for other people: without remote access they only open on this computer.
-  wrap(async (req, res) => res.json({ remote: shareable(), managed: managed(), links: (await listShares()).map((s) => withUrl(req, s)) })),
+  wrap(async (req, res) =>
+    res.json({ remote: shareable(), managed: managed(), links: (await listShares()).map((s) => ({ ...withUrl(req, s), watching: watching(s.token) })) }),
+  ),
 );
 app.post(
   '/api/shares',
@@ -353,7 +361,11 @@ app.post(
       const w = (shared.workspaces || []).find((x) => (x as { id: string }).id === ref) as { name?: string } | undefined;
       if (!w) return res.status(404).json({ error: 'No such workspace' });
       title = w.name || 'Workspace';
-    } else return res.status(400).json({ error: 'kind must be session or workspace' });
+    } else if (kind === 'pane') {
+      const f = findPane(String(ref));
+      if (!f) return res.status(404).json({ error: 'No such pane' });
+      title = paneTitle(String(ref));
+    } else return res.status(400).json({ error: 'kind must be session, workspace or pane' });
     res.json(withUrl(req, await createShare(kind, String(ref), title)));
   }),
 );
@@ -365,6 +377,63 @@ app.patch(
   }),
 );
 const guests = new Map<string, Set<WebSocket>>();
+const visitorOf = new WeakMap<WebSocket, string>();
+// Kick one visitor off a link: close their terminals; their page is refused from now on (shares.ts).
+app.post(
+  '/api/shares/:token/kick',
+  wrap(async (req, res) => {
+    const token = String(req.params.token);
+    const visitor = String(req.body?.visitor || '');
+    kick(token, visitor);
+    for (const ws of guests.get(token) || []) if (visitorOf.get(ws) === visitor) ws.close(4403, 'removed');
+    res.json({ ok: true });
+  }),
+);
+
+// ── Claude connections (claude-links.ts) ───────────────────────────────────
+// `studio tell` / `studio peek` from inside a pane. Plain text both ways, so bin/studio needs only curl.
+app.post('/api/claude-link/tell', express.text({ type: '*/*', limit: '64kb' }), (req, res) => {
+  const [code, text] = links.tell(String(req.query.term || ''), typeof req.body === 'string' ? req.body : '');
+  res.status(code).type('text/plain').send(text + '\n');
+});
+app.get(
+  '/api/claude-link/peek',
+  wrap(async (req, res) => {
+    const [code, text] = await links.peek(String(req.query.term || ''));
+    res.status(code).type('text/plain').send(text + '\n');
+  }),
+);
+app.get('/api/claude-links', wrap(async (_req, res) => res.json(await links.listLinks())));
+app.get(
+  '/api/claude-links/inspect',
+  wrap(async (req, res) => {
+    try {
+      res.json(await links.inspect(String(req.query.url || '')));
+    } catch (e) {
+      res.status(400).json({ error: String((e as Error).message || e) });
+    }
+  }),
+);
+app.post(
+  '/api/claude-links/invite',
+  wrap(async (req, res) => {
+    const paneId = String(req.body?.paneId || '');
+    if (!findPane(paneId)) return res.status(404).json({ error: 'No such pane' });
+    res.json(withUrl(req, await links.invite(paneId)));
+  }),
+);
+app.post(
+  '/api/claude-links/join',
+  wrap(async (req, res) => {
+    try {
+      res.json({ id: await links.join(String(req.body?.url || ''), String(req.body?.paneId || '')) });
+    } catch (e) {
+      res.status(400).json({ error: String((e as Error).message || e) });
+    }
+  }),
+);
+app.post('/api/claude-links/:id', (req, res) => res.json({ ok: links.pause(String(req.params.id), !!req.body?.paused) }));
+app.delete('/api/claude-links/:id', wrap(async (req, res) => res.json({ ok: await links.disconnect(String(req.params.id)) })));
 app.delete(
   '/api/shares/:token',
   wrap(async (req, res) => {
@@ -503,19 +572,55 @@ app.get('/share/:token', (_req, res) => {
   res.type('html').send(guestPage());
 });
 
+type SharedPane = { id: string; title: string; cwd: string; claude: boolean };
+const paneInfo = (pane: any): SharedPane | null => {
+  const t = pane?.termId && terms.get(pane.termId);
+  if (!t || t.exited) return null;
+  return { id: t.id, title: pane.name || (pane.command?.startsWith('claude') ? 'Claude' : t.title), cwd: meta[t.id]?.cwd || t.cwd, claude: !!meta[t.id]?.claude };
+};
 /** Live terminals of a shared workspace, in layout order. */
 function sharedPanes(workspaceId: string) {
   const w = (shared.workspaces || []).find((x) => (x as { id: string }).id === workspaceId) as { name?: string; root?: unknown } | undefined;
   if (!w) return null;
-  const out: { id: string; title: string; cwd: string }[] = [];
+  const out: SharedPane[] = [];
   const walk = (n: any) => {
     if (n?.type === 'pane') {
-      const t = n.pane?.termId && terms.get(n.pane.termId);
-      if (t && !t.exited) out.push({ id: t.id, title: n.pane.name || (n.pane.command?.startsWith('claude') ? 'Claude' : t.title), cwd: meta[t.id]?.cwd || t.cwd });
+      const p = paneInfo(n.pane);
+      if (p) out.push(p);
     } else if (n?.type === 'split') walk(n.a), walk(n.b);
   };
   walk(w.root);
   return { name: w.name || 'Workspace', panes: out };
+}
+/** A pane anywhere in your workspaces, by its id (stable while its terminal comes and goes). */
+function findPane(paneId: string): { pane: any; workspace: { name?: string } } | null {
+  let hit: { pane: any; workspace: { name?: string } } | null = null;
+  const walk = (n: any, w: { name?: string }) => {
+    if (hit) return;
+    if (n?.type === 'pane' && n.pane?.id === paneId) hit = { pane: n.pane, workspace: w };
+    else if (n?.type === 'split') walk(n.a, w), walk(n.b, w);
+  };
+  for (const w of (shared.workspaces || []) as { name?: string; root?: unknown }[]) walk(w.root, w);
+  return hit;
+}
+const termForPane = (paneId: string) => {
+  const id = findPane(paneId)?.pane?.termId || paneTerms.get(paneId);
+  const t = id && terms.get(id);
+  return t && !t.exited ? t.id : null;
+};
+const paneTitle = (paneId: string) => {
+  const f = findPane(paneId);
+  if (!f) return 'Claude';
+  const name = f.pane.name || (f.pane.command?.startsWith('claude') ? 'Claude' : 'Terminal');
+  return f.workspace.name ? `${name} · ${f.workspace.name}` : name;
+};
+/** The terminals a workspace or pane link shows. */
+function panesFor(s: Share) {
+  if (s.kind === 'workspace') return sharedPanes(s.ref);
+  if (s.kind !== 'pane') return null;
+  const f = findPane(s.ref);
+  const p = f && paneInfo(f.pane);
+  return f ? { name: s.title, panes: p ? [p] : [] } : null;
 }
 
 app.get(
@@ -524,14 +629,52 @@ app.get(
     guestHeaders(res);
     const s = await getShare(String(req.params.token));
     if (!s) return res.status(404).json({ error: 'No such link' });
+    if (isKicked(s.token, String(req.query.v || ''))) return res.status(403).json({ error: 'removed', kicked: true });
+    if (s.kind === 'claude') return res.json({ kind: 'claude', title: s.title, name: links.ownerName(), pane: paneTitle(s.ref), expiresAt: s.expiresAt });
     if (s.kind === 'session') {
       const info = await sessionInfo(s.ref);
       if (!info) return res.status(404).json({ error: 'That conversation is gone' });
       return res.json({ kind: 'session', title: info.title, sessionId: info.sessionId, project: info.project, expiresAt: s.expiresAt });
     }
-    const w = sharedPanes(s.ref);
-    if (!w) return res.status(404).json({ error: 'That workspace is closed' });
-    res.json({ kind: 'workspace', title: w.name, canType: s.canType, panes: w.panes, expiresAt: s.expiresAt });
+    const w = panesFor(s);
+    if (!w) return res.status(404).json({ error: s.kind === 'pane' ? 'That pane is closed' : 'That workspace is closed' });
+    res.json({ kind: s.kind, title: w.name, canType: s.canType, canMessage: !!s.canMessage, panes: w.panes, expiresAt: s.expiresAt });
+  }),
+);
+// Guest pages check in every few seconds: that's how "watching now" and the list of opens work (shares.ts).
+app.post(
+  '/share/api/:token/hello',
+  wrap(async (req, res) => {
+    guestHeaders(res);
+    const s = await getShare(String(req.params.token));
+    if (!s) return res.status(404).json({ error: 'No such link' });
+    const ok = await hello(s.token, String(req.body?.v || ''), String(req.headers['user-agent'] || ''), (req.headers['cf-ipcountry'] as string) || null);
+    res.status(ok ? 200 : 403).json({ ok, kicked: !ok });
+  }),
+);
+// A guest's message to one of the shared Claude panes, if the link allows it. It goes straight in.
+const guestSends = new Map<string, number[]>();
+app.post(
+  '/share/api/:token/message',
+  wrap(async (req, res) => {
+    guestHeaders(res);
+    const s = await getShare(String(req.params.token));
+    const { pane, text, name, v } = req.body || {};
+    if (!s || (s.kind !== 'workspace' && s.kind !== 'pane')) return res.status(404).json({ error: 'No such link' });
+    if (isKicked(s.token, String(v || ''))) return res.status(403).json({ error: 'You were removed from this link.' });
+    if (!s.canMessage) return res.status(403).json({ error: 'This link doesn’t allow messages.' });
+    const p = panesFor(s)?.panes.find((x) => x.id === pane);
+    if (!p?.claude) return res.status(400).json({ error: 'That pane isn’t running Claude.' });
+    const body = String(text || '').trim();
+    if (!body || body.length > MAX_MESSAGE) return res.status(400).json({ error: `Messages can be up to ${MAX_MESSAGE} characters.` });
+    const recent = (guestSends.get(s.token) || []).filter((t) => Date.now() - t < 60_000);
+    if (recent.length >= 10) return res.status(429).json({ error: 'Too many messages. Wait a minute.' });
+    guestSends.set(s.token, [...recent, Date.now()]);
+    const msg = guestText(String(name || '').slice(0, 60), body);
+    terms.write(p.id, asPaste(msg), false);
+    setTimeout(() => terms.write(p.id, '\r', false), 120);
+    pushNotification({ termId: p.id, title: `Guest message to Claude · ${s.title}`, body: body.slice(0, 200), source: 'api' });
+    res.json({ ok: true });
   }),
 );
 app.get(
@@ -588,6 +731,19 @@ const rememberPanes = (node: any) => {
   else if (node?.type === 'split') rememberPanes(node.a), rememberPanes(node.b);
 };
 for (const w of shared.workspaces || []) rememberPanes((w as { root?: unknown }).root);
+
+links.startLinks({
+  termForPane,
+  paneTitle,
+  claudeIn: (termId) => {
+    const c = meta[termId]?.claude;
+    return c ? { cwd: c.cwd, sessionId: c.sessionId } : null;
+  },
+  recentEvents: async (c) => (await readActivity(transcriptPath(c.cwd, c.sessionId), 40)).events.slice(-40),
+  write: (termId, text) => void terms.write(termId, text, false),
+  notify: (title, body, termId) => pushNotification({ termId, title, body, source: 'api' }),
+  changed: () => {},
+}).catch((e) => console.error('[links]', e));
 app.get('/api/workspaces', (_req, res) => res.json(shared));
 app.put('/api/workspaces', (req, res) => {
   const { workspaces, from } = req.body || {};
@@ -644,15 +800,20 @@ server.on('upgrade', async (req, socket, head) => {
   const g = url.pathname.match(/^\/share\/ws\/([\w-]+)\/term\/([\w-]+)$/);
   if (g) {
     const share = await getShare(g[1]);
-    const ok = share?.kind === 'workspace' && sharedPanes(share.ref)?.panes.some((p) => p.id === g[2]);
+    const visitor = url.searchParams.get('v') || '';
+    const ok = !!share && !isKicked(share.token, visitor) && !!panesFor(share)?.panes.some((p) => p.id === g[2]);
     return wss.handleUpgrade(req, socket, head, (ws) => {
       if (!share || !ok) return ws.close(4404, 'not found');
       const set = guests.get(share.token) || guests.set(share.token, new Set()).get(share.token)!;
       set.add(ws);
+      visitorOf.set(ws, visitor);
       ws.on('close', () => set.delete(ws));
       terms.attach(g[2], ws, { canType: () => share.canType });
     });
   }
+  // A teammate's Studio connecting its Claude to one of yours through a claude link.
+  const cl = url.pathname.match(/^\/share\/ws\/([\w-]+)\/claude$/);
+  if (cl) return wss.handleUpgrade(req, socket, head, (ws) => links.acceptHost(cl[1], ws));
   wss.handleUpgrade(req, socket, head, (ws) => {
     const m = url.pathname.match(/^\/ws\/term\/([\w-]+)$/);
     if (m) return terms.attach(m[1], ws);

@@ -161,6 +161,9 @@ function systemLang(current?: string) {
   return 'en_US.UTF-8';
 }
 
+// bin/studio: in the repo, or inside the Mac app (STUDIO_ROOT); shell.ts puts it on PATH.
+const STUDIO_BIN = path.join(process.env.STUDIO_ROOT || path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..'), 'bin');
+
 function startHost() {
   fs.mkdirSync(DATA_DIR, { recursive: true });
   const log = fs.openSync(path.join(DATA_DIR, 'pty-host.log'), 'a');
@@ -308,6 +311,7 @@ export class TerminalManager extends EventEmitter {
         CLAUDE_CODE_SCROLL_SPEED: process.env.CLAUDE_CODE_SCROLL_SPEED || '4',
         STUDIO_URL: this.baseUrl,
         STUDIO_TERMINAL_ID: id,
+        STUDIO_BIN,
       },
     });
     if (created.error) {
@@ -351,16 +355,17 @@ export class TerminalManager extends EventEmitter {
         } catch {}
         return;
       }
-      this.emit('input');
+      this.emit('input', id, true);
       this.host.send({ op: 'write', id, data: msg });
     });
     ws.on('close', () => term.clients.delete(ws));
   }
 
-  write(id: string, text: string) {
+  /** `human`: false for text Studio types itself (messages between Claudes), which shouldn't count as someone typing. */
+  write(id: string, text: string, human = true) {
     const term = this.terms.get(id);
     if (!term) return false;
-    this.emit('input');
+    this.emit('input', id, human);
     this.host.send({ op: 'write', id, data: text });
     return true;
   }

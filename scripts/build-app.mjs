@@ -60,6 +60,10 @@ for (const [entry, out] of [['server/index.ts', 'server.mjs'], ['server/pty-host
 fs.cpSync(path.join(ROOT, 'dist'), path.join(STAGE, 'dist'), { recursive: true });
 // The app's main process: everything in electron/ except tests.
 fs.cpSync(path.join(ROOT, 'electron'), path.join(STAGE, 'electron'), { recursive: true, filter: (f) => !f.endsWith('.test.cjs') });
+// The `studio` command for your terminals (studio tell / peek between Claudes, notify…).
+fs.mkdirSync(path.join(STAGE, 'bin'));
+fs.copyFileSync(path.join(ROOT, 'bin/studio'), path.join(STAGE, 'bin/studio'));
+fs.chmodSync(path.join(STAGE, 'bin/studio'), 0o755);
 const layout = 'vendor/pixel-agents/webview-ui/public/assets/default-layout-1.json';
 fs.mkdirSync(path.dirname(path.join(STAGE, layout)), { recursive: true });
 fs.copyFileSync(path.join(ROOT, layout), path.join(STAGE, layout));

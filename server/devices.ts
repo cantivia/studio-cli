@@ -62,7 +62,7 @@ export async function claimCode(raw: string, ip: string, userAgent: string): Pro
   return { ok: true, token };
 }
 
-function deviceName(ua: string) {
+export function deviceName(ua: string) {
   if (/iPad/.test(ua)) return 'iPad';
   if (/iPhone/.test(ua)) return 'iPhone';
   if (/Android/.test(ua)) return 'Android phone';

@@ -69,6 +69,9 @@ if [[ -z "$STUDIO_KEEP_PROMPT" && ( "$PROMPT" == '%n@%m %1~ %# ' || -z "$PROMPT"
   RPROMPT='%(?..%F{#e5383b}%?%f )%F{244}%*%f'
   unset _sa
 fi
+
+# Studio's own command (studio notify, tell, peek…), also in the Mac app, which keeps it inside the app.
+[[ -n "$STUDIO_BIN" ]] && path+=("$STUDIO_BIN")
 `;
 
 export function installShellIntegration() {

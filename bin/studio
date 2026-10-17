@@ -3,6 +3,8 @@
 # so `studio notify "tests passed"` rings the pane you ran it from.
 set -euo pipefail
 URL="${STUDIO_URL:-http://127.0.0.1:4600}"
+# Studio's own answer is already printed (curl -s --fail-with-body); add a line only if Studio couldn't be reached.
+unreachable() { local s=$?; [ "$s" -eq 7 ] && echo "Can't reach Studio at $URL." >&2; exit "$s"; }
 json() { node -e 'console.log(JSON.stringify(Object.fromEntries(process.argv.slice(1).map(a=>a.split(/=(.*)/s).slice(0,2)))))' "$@"; }
 
 case "${1:-help}" in
@@ -15,8 +17,17 @@ case "${1:-help}" in
     # studio send <terminal-id> "text"   (presses Enter after)
     curl -fsS -X POST "$URL/api/terminals/$2/send" -H 'content-type: application/json' \
       -d "$(node -e 'console.log(JSON.stringify({text:process.argv[1],enter:true}))' "$3")" >/dev/null ;;
+  tell)
+    # studio tell "message"   to the teammate's Claude connected to this pane (Claude panel → Teammate in Studio).
+    # Plain text over curl, so it works on a Mac without Node.
+    shift
+    printf '%s' "$*" | curl -s --fail-with-body -X POST "$URL/api/claude-link/tell?term=${STUDIO_TERMINAL_ID:-}" \
+      -H 'content-type: text/plain' --data-binary @- || unreachable ;;
+  peek)
+    # studio peek   what the connected teammate's Claude has been doing lately
+    curl -s --fail-with-body "$URL/api/claude-link/peek?term=${STUDIO_TERMINAL_ID:-}" || unreachable ;;
   ls)
     curl -fsS "$URL/api/state" | node -e 'let d="";process.stdin.on("data",c=>d+=c).on("end",()=>{const s=JSON.parse(d);for(const t of s.terminals){const m=s.meta[t.id]||{};console.log([t.id,m.claude?"claude:"+m.claude.status:"shell",m.cwd||t.cwd].join("\t"))}})' ;;
   *)
-    echo "usage: studio notify <body> [title] | studio send <terminal-id> <text> | studio ls" ;;
+    echo "usage: studio notify <body> [title] | studio send <terminal-id> <text> | studio ls | studio tell <message> | studio peek" ;;
 esac

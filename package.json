@@ -25,7 +25,8 @@
     "switch-to-app": "node scripts/switch-to-app.mjs",
     "test:update": "node --test electron/update-core.test.cjs",
     "release": "node scripts/release.mjs",
-    "release:key": "node scripts/release.mjs key"
+    "release:key": "node scripts/release.mjs key",
+    "test": "node --test electron/update-core.test.cjs && node --import tsx --test server/links-core.test.ts"
   },
   "dependencies": {
     "@xterm/addon-fit": "^0.11.0",
