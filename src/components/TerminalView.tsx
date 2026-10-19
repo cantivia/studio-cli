@@ -144,7 +144,7 @@ export function TerminalView({ pane, focused, visible, onFocus, actions, headerE
       onMouseDown={onFocus}
     >
       {!bare && (
-        <div className={`flex h-10 shrink-0 items-center gap-2 pl-3 pr-2 text-[12px] ${muted}`}>
+        <div className={`pane-header flex h-10 shrink-0 items-center gap-2 pl-3 pr-2 text-[12px] ${muted}`}>
           <span
             onDoubleClick={() => setRenaming(true)}
             title="Double-click to rename"
@@ -175,9 +175,9 @@ export function TerminalView({ pane, focused, visible, onFocus, actions, headerE
           </span>
           {claude && <ClaudeState busy={claude.status === 'busy'} done={doneUnread} ink={ink} />}
           {!claude && doneUnread && <ClaudeState busy={false} done ink={ink} />}
-          <span className={`truncate font-mono text-[11.5px] ${ink ? 'text-[#c7c7cc]' : 'text-[#3a3a3c]'}`}>{tildify(cwd, home)}</span>
+          <span className={`pane-context truncate font-mono text-[11.5px] ${ink ? 'text-[#c7c7cc]' : 'text-[#3a3a3c]'}`}>{tildify(cwd, home)}</span>
           {meta?.git && (
-            <span className="flex shrink-0 items-center gap-1 font-medium">
+            <span className="pane-git flex shrink-0 items-center gap-1 font-medium">
               <GitBranch size={11} />
               <span className="max-w-[140px] truncate">{meta.git.branch}</span>
               {meta.git.dirty > 0 && <span className="text-[#f59e0b]">●{meta.git.dirty}</span>}
@@ -190,13 +190,13 @@ export function TerminalView({ pane, focused, visible, onFocus, actions, headerE
               target="_blank"
               rel="noreferrer"
               onMouseDown={(e) => e.stopPropagation()}
-              className="flex shrink-0 items-center gap-1 font-medium hover:text-[var(--acc-ui)]"
+              className="pane-port flex shrink-0 items-center gap-1 font-medium hover:text-[var(--acc-ui)]"
             >
               <Radio size={10} />:{p}
             </a>
           ))}
           {headerExtra}
-          <div className="ml-auto flex items-center gap-0.5 opacity-0 transition-opacity group-hover/pane:opacity-100 [@media(hover:none)]:opacity-100">
+          <div className="pane-actions ml-auto flex items-center gap-0.5 opacity-0 transition-opacity group-hover/pane:opacity-100 [@media(hover:none)]:opacity-100">
             <IconBtn ink={ink} title="Rename terminal" onClick={() => setRenaming(true)}>
               <Pencil size={12} />
             </IconBtn>

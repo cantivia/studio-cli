@@ -121,10 +121,10 @@ function sendSize(e: Entry) {
  * (typing, clicking, pointing, coming back to the tab) takes the size back, so Claude's prompt box
  * isn't drawn below the bottom of your screen.
  */
-function claimSize(e: Entry, force = false) {
-  if (!e.opened || !e.el.isConnected || !e.el.clientWidth || document.hidden) return;
+function claimSize(e: Entry) {
+  if (!e.opened || !e.el.isConnected || !e.el.clientWidth || document.hidden || !document.hasFocus()) return;
   const s = e.ptySize;
-  if (force || e.needsRedraw || !s || s.cols !== e.term.cols || s.rows !== e.term.rows) sendSize(e);
+  if (e.needsRedraw || !s || s.cols !== e.term.cols || s.rows !== e.term.rows) sendSize(e);
 }
 
 const claimAll = () => registry.forEach((e) => claimSize(e));
@@ -136,7 +136,7 @@ function afterReplay(e: Entry) {
   e.awaitingReplay = false;
   e.term.write('', () => {
     e.needsRedraw = e.term.buffer.active.type === 'alternate';
-    claimSize(e, true);
+    claimSize(e);
   });
 }
 
@@ -215,9 +215,10 @@ export function fitTerm(termId: string) {
   const e = registry.get(termId);
   if (!e?.opened || !e.el.isConnected || !e.el.clientWidth) return;
   try {
-    const { cols, rows } = e.term;
     e.fit.fit();
-    if (cols !== e.term.cols || rows !== e.term.rows) sendSize(e);
+    // ResizeObservers also fire in a background browser window. Going through
+    // claimSize keeps that device from silently taking the shared pty back.
+    claimSize(e);
   } catch {}
 }
 

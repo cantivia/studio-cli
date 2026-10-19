@@ -1,7 +1,7 @@
 import { motion } from 'framer-motion';
 import { Bell, Command, Gamepad2, History, LayoutGrid, Link2, Menu } from 'lucide-react';
 import { useStore } from '../lib/store';
-import { useIsPhone } from '../lib/device';
+import { useIsCompact } from '../lib/device';
 import type { Mode } from '../lib/types';
 
 const TABS: { id: Mode; label: string; icon: typeof LayoutGrid }[] = [
@@ -17,14 +17,14 @@ export function TopNav() {
   const set = useStore((s) => s.set);
   const unread = useStore((s) => s.notifications.filter((n) => !n.read).length);
   const busy = useStore((s) => Object.values(s.meta).filter((m) => m.claude?.status === 'busy').length);
-  const phone = useIsPhone();
+  const compact = useIsCompact();
 
   return (
     <header
-      className={`drag relative z-20 grid shrink-0 grid-cols-[1fr_auto_1fr] items-center ${phone ? 'h-[52px] px-3' : 'h-[60px] px-5 pt-3'}`}
+      className={`drag relative z-20 grid shrink-0 grid-cols-[1fr_auto_1fr] items-center ${compact ? 'h-[52px] px-3' : 'h-[60px] px-5 pt-3'}`}
     >
       <div className="flex min-w-0 items-center gap-2 text-[12px] font-medium text-muted">
-        {phone ? (
+        {compact ? (
           <button
             onClick={() => set({ navOpen: true })}
             className="liquid-glass relative grid h-9 w-9 place-items-center rounded-full text-ink"
@@ -54,7 +54,7 @@ export function TopNav() {
               key={t.id}
               onClick={() => setMode(t.id)}
               title={t.label}
-              className={`relative flex items-center gap-2 rounded-full ${phone ? 'px-3.5 py-2' : 'px-4 py-1.5'} text-[13px] font-medium transition-colors duration-300 ${
+              className={`relative flex items-center gap-2 rounded-full ${compact ? 'px-3.5 py-2' : 'px-4 py-1.5'} text-[13px] font-medium transition-colors duration-300 ${
                 active ? 'text-on-ink' : 'text-muted hover:text-ink'
               }`}
             >
@@ -66,14 +66,14 @@ export function TopNav() {
                 />
               )}
               <Icon size={14} className="relative" />
-              {!phone && <span className="relative">{t.label}</span>}
+              {!compact && <span className="relative">{t.label}</span>}
             </button>
           );
         })}
       </nav>
 
       <div className="flex min-w-0 items-center justify-end gap-2">
-        {!phone && (
+        {!compact && (
           <button
             onClick={() => set({ paletteOpen: true })}
             className="liquid-glass flex items-center gap-2 rounded-full py-1.5 pl-3 pr-2 text-[12px] font-medium text-muted transition hover:text-ink"

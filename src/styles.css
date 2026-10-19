@@ -64,6 +64,7 @@ body,
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
   overflow: hidden;
+  overscroll-behavior: none;
 }
 
 /* Notch and home bar on iPhone (viewport-fit=cover), mainly when added to the home screen. */
@@ -216,6 +217,45 @@ a:focus-visible {
 .term-host .xterm-viewport::-webkit-scrollbar-thumb {
   background: var(--acc-soft);
   border-radius: 8px;
+}
+
+/* The tablet layout intentionally prioritises one readable terminal over a tiny
+   desktop grid. Its header keeps the useful identity and touch actions, while
+   moving secondary path/git/port information out of the way. */
+@media (max-width: 1199px) {
+  .pane {
+    border-radius: 14px;
+  }
+  .pane::before {
+    left: 14px;
+    right: 14px;
+  }
+  .pane-header {
+    height: 42px;
+    gap: 6px;
+    padding-left: 10px;
+    padding-right: 8px;
+  }
+  .pane-context,
+  .pane-git,
+  .pane-port {
+    display: none;
+  }
+  .pane-actions {
+    opacity: 1;
+  }
+  .term-host {
+    inset: 4px 4px 7px 10px;
+  }
+}
+
+@media (max-width: 767px) {
+  .pane-header > :first-child {
+    max-width: calc(100% - 150px);
+  }
+  .pane-actions {
+    gap: 0;
+  }
 }
 
 .divider {

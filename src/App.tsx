@@ -20,7 +20,7 @@ import { RemoteDialog } from './components/RemoteDialog';
 import { InkField } from './components/InkField';
 import { useWorkflowAutoAdvance } from './lib/runs';
 import { StudioIntro } from './components/intro/StudioIntro';
-import { useIsPhone } from './lib/device';
+import { useIsCompact } from './lib/device';
 import { onRemoteWorkspaces, syncWorkspaces } from './lib/sync';
 
 function useEventStream() {
@@ -145,7 +145,7 @@ export default function App() {
   const mode = useStore((s) => s.mode);
   const ready = useStore((s) => s.ready);
   const termTheme = useStore((s) => s.terminalTheme);
-  const phone = useIsPhone();
+  const compact = useIsCompact();
   const navOpen = useStore((s) => s.navOpen);
   const set = useStore((s) => s.set);
 
@@ -173,14 +173,14 @@ export default function App() {
   return (
     <div className="safe-area relative flex h-full w-full">
       <InkField />
-      {phone ? (
+      {compact ? (
         <>
           <div
             onClick={() => set({ navOpen: false })}
             className={`fixed inset-0 z-40 bg-black/20 transition-opacity duration-300 ${navOpen ? 'opacity-100' : 'pointer-events-none opacity-0'}`}
           />
           <div
-            className={`safe-area fixed inset-y-0 left-0 z-50 w-[86vw] max-w-[320px] bg-[var(--canvas)] shadow-2xl transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] ${navOpen ? 'translate-x-0' : '-translate-x-full'}`}
+            className={`safe-area fixed inset-y-0 left-0 z-50 w-[86vw] max-w-[360px] bg-[var(--canvas)] shadow-2xl transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] ${navOpen ? 'translate-x-0' : '-translate-x-full'}`}
           >
             <Sidebar />
           </div>
